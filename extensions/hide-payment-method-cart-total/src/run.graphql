@@ -1,0 +1,18 @@
+query RunInput {
+  shop {
+    metafield(namespace: "cart", key: "hide_payment") {
+      value
+    }
+  }
+  cart {
+    cost {
+      totalAmount {
+        amount
+      }
+    }
+  }
+  paymentMethods {
+    id
+    name
+  }
+}

@@ -1,0 +1,36 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "76b38acc3a61143bfdfc236b65ac1968"
+application_url = "https://macintosh-ambassador-spencer-entire.trycloudflare.com"
+embedded = true
+name = "checkout-beta"
+handle = "checkout-beta-1"
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products,write_discounts,write_payment_customizations"
+
+[auth]
+redirect_urls = [
+  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/auth/callback",
+  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/auth/shopify/callback",
+  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
