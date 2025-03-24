@@ -38,18 +38,32 @@ export async function loader({ request }) {
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
-  console.log("formaData->", formData);
+  console.log("formData->", formData);
+  // formData-> FormData {
+  //   01:52:22 │                     remix │   id: 'gid://shopify/Shop/74655760623',
+  //   01:52:22 │                     remix │   customizeName: 'No name..',
+  //   01:52:22 │                     remix │   paymentMethod: 'Cash On Delivery',
+  //   01:52:22 │                     remix │   'conditionType-0': 'product',
+  //   01:52:22 │                     remix │   'greaterSmaller-0': 'is',
+  //   01:52:22 │                     remix │   'selectedProducts-0': '1, 2',
+  //   01:52:22 │                     remix │   'conditionType-1': 'cart_total',
+  //   01:52:22 │                     remix │   'greaterSmaller-1': 'greater_than',
+  //   01:52:22 │                     remix │   'cartTotal-1': '1000',
+  //   01:52:22 │                     remix │   'conditionType-2': 'shipping_country',
+  //   01:52:22 │                     remix │   'greaterSmaller-2': 'is',
+  //   01:52:22 │                     remix │   'country-2': 'cn'
+  //   01:52:22 │                     remix │ }
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
   const conditions = [];
-  for (let i = 0; i < formData.getAll("hideType").length; i++) {
+  for (let i = 0; i < formData.getAll("conditionType").length; i++) {
     conditions.push({
-      discountType: formData.get(`hideType-${i}`),
+      discountType: formData.get(`conditionType-${i}`),
       greaterOrSmall: formData.get(`greaterSmaller-${i}`),
-      amount: Number(formData.get(`cartTotal-${i}`)),
-      selectedProducts: formData.get(`selectedProducts-${i}`),
-      country: formData.get(`country-${i}`),
+      amount: Number(formData.get(`cartTotal-${i}`)) || 0,
+      selectedProducts: formData.get(`selectedProducts-${i}`) || "",
+      country: formData.get(`country-${i}`) || "",
     });
   }
   const config = JSON.stringify({
@@ -101,6 +115,8 @@ export async function action({ request }) {
 export default function CustomizationSection() {
   const { id } = useLoaderData();
   const data = useActionData();
+  console.log('data',data)
+  // console.log()
   return (
     <Page
       backAction={{ content: "Settings", url: "#" }}
@@ -118,9 +134,7 @@ export default function CustomizationSection() {
 
 export function Body({ id }) {
   const [parentValue, setParentValue] = useState("");
-
   const [customizeName, setCustomizeName] = useState("No name..");
-
   const handleChildValue = (childValue) => {
     setParentValue(childValue);
   };
@@ -128,6 +142,7 @@ export function Body({ id }) {
   // Here's select product model logic
   const [modalActive, setModalActive] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track which condition is currently being edited
   const products = useMemo(
     () => [
       { id: 1, title: "Gift Card" },
@@ -151,8 +166,17 @@ export function Body({ id }) {
   }, []);
 
   const handleConfirmSelection = useCallback(() => {
+    if (currentConditionIndex !== null) {
+      setConditions((prevConditions) =>
+        prevConditions.map((c, i) =>
+          i === currentConditionIndex
+            ? { ...c, selectedProducts: selectedProducts }
+            : c,
+        ),
+      );
+    }
     toggleModal();
-  }, [toggleModal]);
+  }, [currentConditionIndex, selectedProducts, toggleModal]);
 
   const selectedProductTitles = products
     .filter((product) => selectedProducts.includes(product.id))
@@ -172,10 +196,17 @@ export function Body({ id }) {
 
   // Function to add a new condition
   const handleAddCondition = () => {
+    const newDiscountType = "cart_total"; // Default new condition type
+    if (
+      conditions.some((condition) => condition.discountType === newDiscountType)
+    ) {
+      alert("This condition type already exists.");
+      return;
+    }
     setConditions((prevConditions) => [
       ...prevConditions,
       {
-        discountType: "cart_total",
+        discountType: newDiscountType,
         greaterOrSmall: "greater_than",
         amount: 0,
         selectedProducts: [],
@@ -198,6 +229,13 @@ export function Body({ id }) {
         i === index ? { ...c, [field]: value } : c,
       ),
     );
+  };
+
+  // Function to open modal and set current condition index
+  const openModalForCondition = (index) => {
+    setCurrentConditionIndex(index);
+    setSelectedProducts(conditions[index].selectedProducts);
+    toggleModal();
   };
 
   return (
@@ -223,7 +261,7 @@ export function Body({ id }) {
                   style={{ width: "100%" }}
                   name="customizeName"
                   value={customizeName}
-                  onChange={(value) => setCustomizeName(value)}
+                  onChange={(e) => setCustomizeName(e)}
                 />
                 <p
                   style={{
@@ -280,13 +318,9 @@ export function Body({ id }) {
                         style={{ flex: 1 }}
                         value={condition.discountType}
                         onChange={(value) =>
-                          handleConditionChange(
-                            index,
-                            "discountType",
-                            value,
-                          )
+                          handleConditionChange(index, "discountType", value)
                         }
-                        name={`hideType-${index}`}
+                        name={`conditionType-${index}`}
                       />
                     </div>
                     {/* Dropdown 2 */}
@@ -349,7 +383,9 @@ export function Body({ id }) {
                           value={condition.selectedProducts.join(", ")}
                           name={`selectedProducts-${index}`}
                         />
-                        <Button onClick={toggleModal}>Select Products</Button>
+                        <Button onClick={() => openModalForCondition(index)}>
+                          Select Products
+                        </Button>
                       </div>
                     )}
                     {condition.discountType === "shipping_country" && (
@@ -385,12 +421,13 @@ export function Body({ id }) {
                       </div>
                     )}
                     {/* Trash Icon */}
-                    <Icon
-                      source={DeleteIcon}
-                      color="critical"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleRemoveCondition(index)}
-                    />
+                    <Button onClick={() => handleRemoveCondition(index)}>
+                      <Icon
+                        source={DeleteIcon}
+                        color="critical"
+                        // style={{ cursor: "pointer" }}
+                      />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -406,12 +443,7 @@ export function Body({ id }) {
               </div>
               {/* Submit Button */}
               <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button
-                  submit
-                  variant="primary"
-                  fullWidth
-                  // onClick={handleAddCondition}
-                >
+                <Button submit variant="primary" fullWidth>
                   Submit
                 </Button>
               </div>
