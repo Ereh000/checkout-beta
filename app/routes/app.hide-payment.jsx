@@ -9,11 +9,14 @@ import {
   Box,
   Grid,
   Autocomplete,
+  Modal,
+  Listbox,
+  Checkbox,
 } from "@shopify/polaris";
-import { SearchIcon } from "@shopify/polaris-icons";
+import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
 import { useCallback, useMemo, useState } from "react";
 import { authenticate } from "../shopify.server";
-import { data, Form, json, useActionData, useLoaderData } from "@remix-run/react";
+import { Form, json, useActionData, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
@@ -26,7 +29,6 @@ export async function loader({ request }) {
       }
     `);
     const shop = await response.json();
-    // console.log(shop.data.shop.id);
     return { id: shop.data.shop.id };
   } catch (error) {
     return { message: "owner not found", error: error };
@@ -35,28 +37,26 @@ export async function loader({ request }) {
 
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
-
   const formData = await request.formData();
-
-  console.log("formData:", formData);
-
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
-  const hideType = formData.get("hideType");
-  const greaterSmaller = formData.get("greaterSmaller");
-  const cartTotal = formData.get("cartTotal");
-
+  const conditions = [];
+  for (let i = 0; i < formData.getAll("hideType").length; i++) {
+    conditions.push({
+      discountType: formData.get(`hideType-${i}`),
+      greaterOrSmall: formData.get(`greaterSmaller-${i}`),
+      amount: Number(formData.get(`cartTotal-${i}`)),
+      selectedProducts: formData.get(`selectedProducts-${i}`),
+      country: formData.get(`country-${i}`),
+    });
+  }
   const config = JSON.stringify({
     shopId: shopId,
     customizeName: customizeName,
     paymentMethod: paymentMethod,
-    hideType: hideType,
-    greaterSmaller: greaterSmaller,
-    cartTotal: Number(cartTotal),
+    conditions: conditions,
   });
-  console.log("config", config);
-
   try {
     const response = await admin.graphql(
       `#graphql
@@ -90,7 +90,6 @@ export async function action({ request }) {
         },
       },
     );
-
     const data = await response.json();
     return data;
   } catch (error) {
@@ -101,14 +100,12 @@ export async function action({ request }) {
 export default function CustomizationSection() {
   const { id } = useLoaderData();
   const data = useActionData();
-  console.log(id, data);
-
   return (
     <Page
       backAction={{ content: "Settings", url: "#" }}
       title="Hide Payment Method"
       primaryAction={
-        <Button url="#" variant="primary">
+        <Button url="#" variant="primary" submit>
           Save
         </Button>
       }
@@ -119,15 +116,75 @@ export default function CustomizationSection() {
 }
 
 export function Body({ id }) {
-  const [discountType, setDiscouintType] = useState("cart_total");
-  const [greaterOrSmall, setGreaterOrSmall] = useState("greater_than");
-  const [amount, setAmount] = useState(0);
-
   const [parentValue, setParentValue] = useState("");
-
   const handleChildValue = (childValue) => {
     setParentValue(childValue);
-    console.log("Value from child:", childValue[0]);
+  };
+
+  // Here's select product model logic
+  const [modalActive, setModalActive] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const products = useMemo(
+    () => [
+      { id: 1, title: "Gift Card" },
+      { id: 2, title: "$10" },
+      { id: 3, title: "$25" },
+      { id: 4, title: "$50" },
+      { id: 5, title: "$100" },
+    ],
+    [],
+  );
+
+  const toggleModal = useCallback(
+    () => setModalActive((active) => !active),
+    [],
+  );
+
+  const handleSelectProduct = useCallback((id) => {
+    setSelectedProducts((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  }, []);
+
+  const handleConfirmSelection = useCallback(() => {
+    toggleModal();
+  }, [toggleModal]);
+
+  const selectedProductTitles = products
+    .filter((product) => selectedProducts.includes(product.id))
+    .map((product) => product.title)
+    .join(", ");
+
+  // State to manage the list of conditions
+  const [conditions, setConditions] = useState([
+    {
+      discountType: "cart_total",
+      greaterOrSmall: "greater_than",
+      amount: 0,
+      selectedProducts: [],
+      country: "in",
+    },
+  ]);
+
+  // Function to add a new condition
+  const handleAddCondition = () => {
+    setConditions((prevConditions) => [
+      ...prevConditions,
+      {
+        discountType: "cart_total",
+        greaterOrSmall: "greater_than",
+        amount: 0,
+        selectedProducts: [],
+        country: "in",
+      },
+    ]);
+  };
+
+  // Function to remove a condition
+  const handleRemoveCondition = (index) => {
+    setConditions((prevConditions) =>
+      prevConditions.filter((_, i) => i !== index),
+    );
   };
 
   return (
@@ -163,16 +220,13 @@ export function Body({ id }) {
                   This is not visible to the customer
                 </p>
               </div>
-
               {/* Select Payment Method */}
               <div style={{ marginTop: "20px" }}>
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
                   Select Payment Method
                 </label>
-                {/*  */}
                 <AutocompleteExample onValueChange={handleChildValue} />
                 <input type="hidden" name="paymentMethod" value={parentValue} />
-                {/*  */}
                 <p
                   style={{
                     marginTop: "5px",
@@ -184,73 +238,201 @@ export function Body({ id }) {
                   press Enter to add it to the list.
                 </p>
               </div>
-
               {/* Condition Builder */}
-              <div
-                style={{
-                  marginTop: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                {/* Dropdown 1 */}
-                <Select
-                  options={[
-                    { label: "Cart Total", value: "cart_total" },
-                    // { label: "Product", value: "product" },
-                    // Add more options as needed
-                  ]}
-                  placeholder="Select a field"
-                  style={{ flex: 1 }}
-                  value={discountType}
-                  onChange={(value) => setDiscouintType(value)}
-                  name="hideType"
-                />
-
-                {/* Dropdown 2 */}
-                <Select
-                  options={[
-                    { label: "is greater than", value: "greater_than" },
-                    { label: "is less than", value: "less_than" },
-                    // Add more options as needed
-                  ]}
-                  placeholder="Select a condition"
-                  style={{ flex: 1 }}
-                  value={greaterOrSmall}
-                  onChange={(value) => setGreaterOrSmall(value)}
-                  name="greaterSmaller"
-                />
-
-                {/* Input Field */}
-                <TextField
-                  placeholder="100"
-                  type="number"
-                  onChange={(value) => setAmount(value)}
-                  value={amount}
-                  style={{ flex: 1 }}
-                  name="cartTotal"
-                />
-
-                {/* Trash Icon */}
-                <Icon
-                  source="TrashMinor"
-                  color="critical"
-                  style={{ cursor: "pointer" }}
-                />
+              <div style={{ marginTop: "20px" }}>
+                {conditions.map((condition, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    {/* Dropdown 1 */}
+                    <div className="" style={{ flexGrow: 1}}>
+                      <Select
+                        options={[
+                          { label: "Cart Total", value: "cart_total" },
+                          { label: "Product", value: "product" },
+                          {
+                            label: "Shipping Country",
+                            value: "shipping_country",
+                          },
+                        ]}
+                        placeholder="Select a field"
+                        style={{ flex: 1 }}
+                        value={condition.discountType}
+                        onChange={(value) =>
+                          setConditions((prev) =>
+                            prev.map((c, i) =>
+                              i === index ? { ...c, discountType: value } : c,
+                            ),
+                          )
+                        }
+                        name={`hideType-${index}`}
+                      />
+                    </div>
+                    {/* Dropdown 2 */}
+                    {condition.discountType === "cart_total" && (
+                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                        <Select
+                          options={[
+                            { label: "is greater than", value: "greater_than" },
+                            { label: "is less than", value: "less_than" },
+                          ]}
+                          placeholder="Select a condition"
+                          style={{ flex: 1 }}
+                          value={condition.greaterOrSmall}
+                          onChange={(value) =>
+                            setConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === index
+                                  ? { ...c, greaterOrSmall: value.value }
+                                  : c,
+                              ),
+                            )
+                          }
+                          name={`greaterSmaller-${index}`}
+                        />
+                        {/* Input Field */}
+                        <TextField
+                          placeholder="100"
+                          type="number"
+                          value={condition.amount}
+                          onChange={(e) =>
+                            setConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === index
+                                  ? { ...c, amount: Number(e.target.value) }
+                                  : c,
+                              ),
+                            )
+                          }
+                          style={{ flex: 1 }}
+                          name={`cartTotal-${index}`}
+                        />
+                      </div>
+                    )}
+                    {condition.discountType === "product" && (
+                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                        <Select
+                          options={[{ label: "is", value: "is" }]}
+                          style={{ flex: 1 }}
+                          value={condition.greaterOrSmall}
+                          onChange={(value) =>
+                            setConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === index
+                                  ? { ...c, greaterOrSmall: value.value }
+                                  : c,
+                              ),
+                            )
+                          }
+                          name={`greaterSmaller-${index}`}
+                        />
+                        <input
+                          type="hidden"
+                          label="Selected Products"
+                          value={condition.selectedProducts.join(", ")}
+                          name={`selectedProducts-${index}`}
+                        />
+                        <Button onClick={toggleModal}>Select Products</Button>
+                      </div>
+                    )}
+                    {condition.discountType === "shipping_country" && (
+                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                        <Select
+                          options={[{ label: "is", value: "is" }]}
+                          style={{ flex: 1 }}
+                          value={condition.greaterOrSmall}
+                          onChange={(value) =>
+                            setConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === index
+                                  ? { ...c, greaterOrSmall: value.value }
+                                  : c,
+                              ),
+                            )
+                          }
+                          name={`greaterSmaller-${index}`}
+                        />
+                        <Select
+                          options={[
+                            { label: "IN", value: "in" },
+                            { label: "CN", value: "cn" },
+                          ]}
+                          style={{ flex: 1 }}
+                          value={condition.country}
+                          onChange={(value) =>
+                            setConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === index
+                                  ? { ...c, country: value.value }
+                                  : c,
+                              ),
+                            )
+                          }
+                          name={`country-${index}`}
+                        />
+                      </div>
+                    )}
+                    {/* Trash Icon */}
+                    <Icon
+                      source={DeleteIcon}
+                      color="critical"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => handleRemoveCondition(index)}
+                    />
+                  </div>
+                ))}
+              </div>
+              {/* Add Condition Button */}
+              <div style={{ marginTop: "20px", textAlign: "center" }}>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={handleAddCondition}
+                >
+                  +Add condition
+                </Button>
               </div>
             </div>
-
-            {/* Add Condition Button */}
-            <div style={{ marginTop: "20px", textAlign: "center" }}>
-              <Button primary submit fullWidth>
-                <div className="">
-                  {/* <PlusIcon />  */}
-                  <span>Add condition</span>
-                </div>
-              </Button>
-            </div>
           </Form>
+          {/* Product Model */}
+          <Modal
+            open={modalActive}
+            onClose={toggleModal}
+            title="Select Products"
+            primaryAction={{
+              content: "Confirm",
+              onAction: handleConfirmSelection,
+            }}
+            secondaryActions={{
+              content: "Cancel",
+              onAction: toggleModal,
+            }}
+          >
+            <Modal.Section>
+              <Listbox>
+                {products.map((product) => (
+                  <Listbox.Option
+                    key={product.id}
+                    value={product.id}
+                    selected={selectedProducts.includes(product.id)}
+                    onClick={() => handleSelectProduct(product.id)}
+                  >
+                    <Checkbox
+                      label={product.title}
+                      checked={selectedProducts.includes(product.id)}
+                      onChange={() => handleSelectProduct(product.id)}
+                    />
+                  </Listbox.Option>
+                ))}
+              </Listbox>
+            </Modal.Section>
+          </Modal>
         </Card>
       </Grid.Cell>
       <Grid.Cell columnSpan={{ md: 12, lg: 4, xl: 4 }}>
@@ -271,29 +453,21 @@ export function Body({ id }) {
 
 export function AutocompleteExample({ onValueChange }) {
   const deselectedOptions = useMemo(
-    () => [
-      { value: "cash_on_delivery", label: "Cash On Delivery" },
-      // { value: "antique", label: "Antique" },
-    ],
+    () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
     [],
   );
+
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState(deselectedOptions);
 
-  onValueChange(selectedOptions);
-
-  // console.log(selectedOptions)
-
   const updateText = useCallback(
     (value) => {
       setInputValue(value);
-
       if (value === "") {
         setOptions(deselectedOptions);
         return;
       }
-
       const filterRegex = new RegExp(value, "i");
       const resultOptions = deselectedOptions.filter((option) =>
         option.label.match(filterRegex),
@@ -311,11 +485,11 @@ export function AutocompleteExample({ onValueChange }) {
         });
         return matchedOption && matchedOption.label;
       });
-
       setSelectedOptions(selected);
       setInputValue(selectedValue[0] || "");
+      onValueChange(selectedValue[0] || "");
     },
-    [options],
+    [options, onValueChange],
   );
 
   const textField = (

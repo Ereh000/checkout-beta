@@ -10,6 +10,26 @@ query RunInput {
         amount
       }
     }
+    lines {
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+        }
+      }
+    }
+    buyerIdentity {
+      customer {
+        hasTags {
+          tag
+        }
+      }
+    }
+    deliveryGroups{
+      deliveryAddress{
+        countryCode
+      }
+    }
   }
   paymentMethods {
     id

@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
-application_url = "https://macintosh-ambassador-spencer-entire.trycloudflare.com"
+application_url = "https://touch-mic-analysis-buyer.trycloudflare.com"
 embedded = true
 name = "checkout-beta"
 handle = "checkout-beta-1"
@@ -27,9 +27,9 @@ scopes = "write_products,write_discounts,write_payment_customizations"
 
 [auth]
 redirect_urls = [
-  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/auth/callback",
-  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/auth/shopify/callback",
-  "https://macintosh-ambassador-spencer-entire.trycloudflare.com/api/auth/callback"
+  "https://touch-mic-analysis-buyer.trycloudflare.com/auth/callback",
+  "https://touch-mic-analysis-buyer.trycloudflare.com/auth/shopify/callback",
+  "https://touch-mic-analysis-buyer.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
