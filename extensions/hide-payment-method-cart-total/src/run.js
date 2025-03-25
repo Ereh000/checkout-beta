@@ -19,89 +19,145 @@ const NO_CHANGES = {
  * @returns {FunctionRunResult}
  */
 
+// metafields response example value ----------
+// configJson: {
+//   shopId: 'gid://shopify/Shop/74655760623',
+//   customizeName: 'New Name',
+//   paymentMethod: 'Cash On Delivery',
+//   condition: {
+//    cartTotal: [ { greaterOrSmall: 'greater_than', amount: 0 } ],
+//    products: [ { greaterOrSmall: 'is', products: [Array] } ],
+//    shippingCountry: [ { greaterOrSmall: 'is', country: 'in' } ]
+//   }
+// }
+
 export function run(input) {
   const cart = input.cart;
   const metafield = input.shop.metafield;
 
-  const parsed = JSON.parse(metafield.value);
+  // Return early if no metafield is found
+  if (!metafield?.value) {
+    return NO_CHANGES;
+  }
 
-  console.log('metafield', parsed)
-  // let cartTotall = parsed.cartTotal;
+  try {
+    const parsed = JSON.parse(metafield.value);
+    console.log("metafield", parsed);
 
-  // Configuration values - replace with your store's specific requirements
-  const EXCLUDED_PRODUCT_IDS = [8915385155823, 8915385123055]; // Product IDs to exclude
-  const EXCLUDED_COUNTRIES = ["US", "CA"]; // Country codes to exclude
-  const MIN_CART_TOTAL = parsed.cartTotal; // Minimum cart total in store currency
-  // const MIN_CART_TOTAL = 1000; // Minimum cart total in store currency
-  // const EXCLUDED_CUSTOMER_TAGS = ["wholesale", "vip"]; // Customer tags to exclude
+    // Extract configuration from metafield
+    const conditions = parsed.conditions || {};
+    const paymentMethod = parsed.paymentMethod;
 
-  // Conditions -------------
+    // Initialize conditions with defaults if not provided
+    const metaCartTotal = conditions.cartTotal?.[0] || {};
+    const metaProducts = conditions.products?.[0] || {};
+    const metaShippingCountry = conditions.shippingCountry?.[0] || {};
 
-  // Condition 1: Cart total is less than minimum
-  const cartTotal = parseFloat(input.cart.cost.totalAmount.amount ?? "0.0");
-  const totalCondition = cartTotal < MIN_CART_TOTAL;
+    // Set configuration values from metafield
+    const MIN_CART_TOTAL =
+      metaCartTotal.amount && parseFloat(metaCartTotal.amount);
+    const cartTotalComparison = metaCartTotal.greaterOrSmall || "greater_than";
 
-  // Condition 2: Cart contains excluded products
-  const productCondition = input.cart.lines
-    .filter((line) => line.merchandise.__typename === "ProductVariant")
-    .map((line) => ({
-      productVariant: {
-        id: line.merchandise.id,
-      },
-    }))
-    .some((line) => EXCLUDED_PRODUCT_IDS.includes(line.productVariant.id));
+    const EXCLUDED_PRODUCT_IDS = [
+      "gid://shopify/ProductVariant/46322014617839",
+      "gid://shopify/ProductVariant/46322014617839",
+    ];
+    // const EXCLUDED_PRODUCT_IDS = metaProducts.products || [];
+    const productsComparison = metaProducts.greaterOrSmall || "is";
 
-  // Condition 3: Shipping address is from excluded country
-  const countryCondition = cart.deliveryGroups.some(
-    (group) =>
-      group.deliveryAddress?.countryCode &&
-      EXCLUDED_COUNTRIES.includes(group.deliveryAddress.countryCode),
-  );
+    const EXCLUDED_COUNTRIES = metaShippingCountry.country
+      ? [metaShippingCountry.country]
+      : [];
+    const countryComparison = metaShippingCountry.greaterOrSmall || "is";
 
-  // Condition 4: Customer has excluded tag
+    // Get current cart total
+    const cartTotal = parseFloat(input.cart.cost.totalAmount.amount ?? "0.0");
 
-  // will do later.........
+    // Condition 1: Cart total check
+    let totalCondition = false;
+    if (cartTotalComparison === "greater_than") {
+      totalCondition = cartTotal <= MIN_CART_TOTAL;
+    } else if (cartTotalComparison === "less_than") {
+      totalCondition = cartTotal >= MIN_CART_TOTAL;
+    }
 
-  // Conditions ------------- Ends
+    // Condition 2: Products check
+    let productCondition = false;
+    if (productsComparison === "is") {
+      productCondition = input.cart.lines
+        .filter((line) => line.merchandise.__typename === "ProductVariant")
+        .map((line) => ({
+          productVariant: {
+            id: line.merchandise.id,
+          },
+        }))
+        .some((line) => EXCLUDED_PRODUCT_IDS.includes(line.productVariant.id));
+    } else if (productsComparison === "is_not") {
+      productCondition = !input.cart.lines
+        .filter((line) => line.merchandise.__typename === "ProductVariant")
+        .some((line) =>
+          EXCLUDED_PRODUCT_IDS.includes(line.merchandise.product.id),
+        );
+    }
 
-  console.log(
-    "totalCondition",
-    totalCondition,
-    "productCondition",
-    productCondition,
-    "countryCondition",
-    countryCondition,
-  );
+    // Condition 3: Shipping country check
+    let countryCondition = false;
+    if (countryComparison === "is") {
+      countryCondition = cart.deliveryGroups.some(
+        (group) =>
+          group.deliveryAddress?.countryCode &&
+          EXCLUDED_COUNTRIES.includes(group.deliveryAddress.countryCode),
+      );
+    } else if (countryComparison === "is_not") {
+      countryCondition = !cart.deliveryGroups.some(
+        (group) =>
+          group.deliveryAddress?.countryCode &&
+          EXCLUDED_COUNTRIES.includes(group.deliveryAddress.countryCode),
+      );
+    }
 
-  const shouldHideCOD = totalCondition || productCondition || countryCondition;
-
-  // Get the cart total from the function input, and return early if it's below 100
-  if (!shouldHideCOD) {
-    // You can use STDERR for debug logs in your function
-    console.error(
-      "Cart total is not high enough, no need to hide the payment method.",
+    console.log(
+      "Conditions:",
+      "totalCondition",
+      totalCondition,
+      "productCondition",
+      productCondition,
+      "countryCondition",
+      countryCondition,
+      "MIN_CART_TOTAL",
+      MIN_CART_TOTAL,
+      "paymentMethod",
+      paymentMethod,
     );
-    return NO_CHANGES;
-  }
 
-  // Find the payment method to hide
-  const hidePaymentMethod = input.paymentMethods.find((method) =>
-    method.name.includes("Cash on Delivery"),
-  );
+    const shouldHideCOD =
+      totalCondition || countryCondition || productCondition;
 
-  if (!hidePaymentMethod) {
-    return NO_CHANGES;
-  }
+    if (!shouldHideCOD) {
+      console.log("No conditions met to hide the payment method.");
+      return NO_CHANGES;
+    }
 
-  // The @shopify/shopify_function package applies JSON.stringify() to your function result
-  // and writes it to STDOUT
-  return {
-    operations: [
-      {
-        hide: {
-          paymentMethodId: hidePaymentMethod.id,
+    // Find the payment method to hide
+    const hidePaymentMethod = input.paymentMethods.find((method) =>
+      method.name.includes("Cash on Delivery"),
+    );
+
+    if (!hidePaymentMethod) {
+      return NO_CHANGES;
+    }
+
+    return {
+      operations: [
+        {
+          hide: {
+            paymentMethodId: hidePaymentMethod.id,
+          },
         },
-      },
-    ],
-  };
+      ],
+    };
+  } catch (error) {
+    console.error("Error parsing metafield or processing conditions:", error);
+    return NO_CHANGES;
+  }
 }

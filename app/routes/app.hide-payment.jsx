@@ -1,3 +1,5 @@
+// backup.jsx
+
 import {
   Card,
   TextField,
@@ -35,97 +37,27 @@ export async function loader({ request }) {
   }
 }
 
-// export async function action({ request }) {
-//   const { admin } = await authenticate.admin(request);
-//   const formData = await request.formData();
-//   console.log("formData->", formData);
-//   // console.log output formData-> FormData {
-//   //   12:52:45 │                     remix │   id: 'gid://shopify/Shop/64666403016',
-//   //   12:52:45 │                     remix │   customizeName: 'No name..',
-//   //   12:52:45 │                     remix │   paymentMethod: 'Cash On Delivery',
-//   //   12:52:45 │                     remix │   conditionType: [ 'product', 'shipping_country', 'cart_total' ],
-//   //   12:52:45 │                     remix │   greaterSmaller: [ 'is', 'is', 'greater_than' ],
-//   //   12:52:45 │                     remix │   selectedProducts: '2, 3',
-//   //   12:52:45 │                     remix │   country: 'in',
-//   //   12:52:45 │                     remix │   cartTotal: '100'
-//   //   12:52:45 │                     remix │ }
-//   const shopId = formData.get("id");
-//   const customizeName = formData.get("customizeName");
-//   const paymentMethod = formData.get("paymentMethod");
-//   const conditionType = formData.get("conditionType");
-//   const greaterSmaller = formData.get("greaterSmaller");
-//   const selectedProducts = formData.get("selectedProducts");
-//   const country = formData.get("country");
-//   const cartTotal = formData.get("cartTotal");
-
-//   if(conditionType.includes('cart_total'))
-//   const condition = [
-//     {
-//       name: 'cart_total',
-//       greaterSmaller: ''
-//     }
-//   ]
-//   // const conditions = [];
-//   for (let i = 0; i < formData.getAll("conditionType").length; i++) {
-//     conditions.push({
-//       discountType: formData.get(`conditionType-${i}`),
-//       greaterOrSmall: formData.get(`greaterSmaller-${i}`),
-//       amount: Number(formData.get(`cartTotal-${i}`)) || 0,
-//       selectedProducts: formData.get(`selectedProducts-${i}`) || "",
-//       country: formData.get(`country-${i}`) || "",
-//     });
-//   }
-//   const config = JSON.stringify({
-//     shopId: shopId,
-//     customizeName: customizeName,
-//     paymentMethod: paymentMethod,
-//     conditionType: greaterSmaller,
-//   });
-//   try {
-//     const response = await admin.graphql(
-//       `#graphql
-//       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-//         metafieldsSet(metafields: $metafields) {
-//           metafields {
-//             key
-//             namespace
-//             value
-//             createdAt
-//             updatedAt
-//           }
-//           userErrors {
-//             field
-//             message
-//             code
-//           }
-//         }
-//       }`,
-//       {
-//         variables: {
-//           metafields: [
-//             {
-//               key: "hide_payment",
-//               namespace: "cart",
-//               ownerId: shopId,
-//               type: "json",
-//               value: config,
-//             },
-//           ],
-//         },
-//       },
-//     );
-//     const data = await response.json();
-//     return data;
-//   } catch (error) {
-//     return json({ error: error.message }, { status: 500 });
-//   }
-// }
-
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-
+  // formData-> FormData {
+  //  id: 'gid://shopify/Shop/74655760623',
+  //  customizeName: 'No name..',
+  //  paymentMethod: 'Cash On Delivery',
+  //  'conditionType-0': 'product',
+  //  'greaterSmaller-0': 'is',
+  //  'selectedProducts-0': '1, 2',
+  //  'conditionType-1': 'cart_total',
+  //  'greaterSmaller-1': 'greater_than',
+  //  'cartTotal-1': '1000',
+  //  'conditionType-2': 'shipping_country',
+  //  'greaterSmaller-2': 'is',
+  //  'country-2': 'cn'
+  //}
   // Extract individual fields from formData
+
+  const formData = await request.formData();
+  console.log("formData->", formData);
+
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
@@ -133,9 +65,11 @@ export async function action({ request }) {
   // Parse all conditions dynamically
   const conditionTypes = formData.getAll("conditionType");
   const greaterSmaller = formData.getAll("greaterSmaller");
-  const cartTotals = formData.getAll("cartTotal");
+  const cartTotals = formData.get("cartTotal");
   const selectedProducts = formData.getAll("selectedProducts");
   const countries = formData.get("country");
+
+  // Form Validation
 
   // Initialize separate arrays for each condition type
   const cartTotalConditions = [];
@@ -146,7 +80,7 @@ export async function action({ request }) {
   for (let i = 0; i < conditionTypes.length; i++) {
     const conditionType = conditionTypes[i];
     const greaterOrSmall = greaterSmaller[i];
-    const amount = Number(cartTotals[i]) || 0;
+    const amount = Number(cartTotals) || 0;
     const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
     const country = countries;
 
@@ -189,13 +123,22 @@ export async function action({ request }) {
       shippingCountry: shippingCountryConditions,
     },
   });
+  const configJson = {
+    shopId: shopId,
+    customizeName: customizeName,
+    paymentMethod: paymentMethod,
+    conditions: {
+      cartTotal: cartTotalConditions,
+      products: productConditions,
+      shippingCountry: shippingCountryConditions,
+    },
+  };
+  console.log("configJson:", configJson);
+  console.log("condition:", configJson.conditions);
 
-  // console.log('config', config)
-  console.log('formData', formData)
-  // return config;
+  // return configJson;
 
   try {
-    // Save the config object as a metafield
     const response = await admin.graphql(
       `#graphql
       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -228,10 +171,8 @@ export async function action({ request }) {
         },
       },
     );
-
     const data = await response.json();
-
-    return data;
+    return json(data, configJson);
   } catch (error) {
     return json({ error: error.message }, { status: 500 });
   }
@@ -240,7 +181,7 @@ export async function action({ request }) {
 export default function CustomizationSection() {
   const { id } = useLoaderData();
   const data = useActionData();
-  console.log('data', data)
+  console.log("data", data);
   // console.log()
   return (
     <Page
@@ -258,7 +199,6 @@ export default function CustomizationSection() {
 }
 
 export function Body({ id }) {
-  console.log('id', id)
   const [parentValue, setParentValue] = useState("");
   const [customizeName, setCustomizeName] = useState("No name..");
   const handleChildValue = (childValue) => {
@@ -271,11 +211,14 @@ export function Body({ id }) {
   const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track which condition is currently being edited
   const products = useMemo(
     () => [
-      { id: 1, title: "Gift Card" },
-      { id: 2, title: "$10" },
-      { id: 3, title: "$25" },
-      { id: 4, title: "$50" },
-      { id: 5, title: "$100" },
+      {
+        id: "gid://shopify/ProductVariant/46322014617839",
+        title: "The Compare at Price Snowboard",
+      },
+      // { id: 2, title: "$10" },
+      // { id: 3, title: "$25" },
+      // { id: 4, title: "$50" },
+      // { id: 5, title: "$100" },
     ],
     [],
   );
@@ -356,6 +299,8 @@ export function Body({ id }) {
       ),
     );
   };
+
+  const [cartAmount, setCartAmount] = useState(0);
 
   // Function to open modal and set current condition index
   const openModalForCondition = (index) => {
@@ -476,12 +421,14 @@ export function Body({ id }) {
                         <TextField
                           placeholder="100"
                           type="number"
-                          value={condition.amount}
-                          onChange={(e) =>
-                            handleConditionChange(index, "amount", Number(e))
-                          }
+                          // value={condition.amount}
+                          // onChange={(value) =>
+                          //   handleConditionChange(index, "amount", value)
+                          // }
+                          value={cartAmount}
+                          onChange={(value) => setCartAmount(value)}
                           style={{ flex: 1 }}
-                          name={`cartTotal`}
+                          name="cartTotal"
                         />
                       </div>
                     )}
@@ -551,7 +498,7 @@ export function Body({ id }) {
                       <Icon
                         source={DeleteIcon}
                         color="critical"
-                      // style={{ cursor: "pointer" }}
+                        // style={{ cursor: "pointer" }}
                       />
                     </Button>
                   </div>
