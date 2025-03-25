@@ -35,44 +35,167 @@ export async function loader({ request }) {
   }
 }
 
+// export async function action({ request }) {
+//   const { admin } = await authenticate.admin(request);
+//   const formData = await request.formData();
+//   console.log("formData->", formData);
+//   // console.log output formData-> FormData {
+//   //   12:52:45 │                     remix │   id: 'gid://shopify/Shop/64666403016',
+//   //   12:52:45 │                     remix │   customizeName: 'No name..',
+//   //   12:52:45 │                     remix │   paymentMethod: 'Cash On Delivery',
+//   //   12:52:45 │                     remix │   conditionType: [ 'product', 'shipping_country', 'cart_total' ],
+//   //   12:52:45 │                     remix │   greaterSmaller: [ 'is', 'is', 'greater_than' ],
+//   //   12:52:45 │                     remix │   selectedProducts: '2, 3',
+//   //   12:52:45 │                     remix │   country: 'in',
+//   //   12:52:45 │                     remix │   cartTotal: '100'
+//   //   12:52:45 │                     remix │ }
+//   const shopId = formData.get("id");
+//   const customizeName = formData.get("customizeName");
+//   const paymentMethod = formData.get("paymentMethod");
+//   const conditionType = formData.get("conditionType");
+//   const greaterSmaller = formData.get("greaterSmaller");
+//   const selectedProducts = formData.get("selectedProducts");
+//   const country = formData.get("country");
+//   const cartTotal = formData.get("cartTotal");
+
+//   if(conditionType.includes('cart_total'))
+//   const condition = [
+//     {
+//       name: 'cart_total',
+//       greaterSmaller: ''
+//     }
+//   ]
+//   // const conditions = [];
+//   for (let i = 0; i < formData.getAll("conditionType").length; i++) {
+//     conditions.push({
+//       discountType: formData.get(`conditionType-${i}`),
+//       greaterOrSmall: formData.get(`greaterSmaller-${i}`),
+//       amount: Number(formData.get(`cartTotal-${i}`)) || 0,
+//       selectedProducts: formData.get(`selectedProducts-${i}`) || "",
+//       country: formData.get(`country-${i}`) || "",
+//     });
+//   }
+//   const config = JSON.stringify({
+//     shopId: shopId,
+//     customizeName: customizeName,
+//     paymentMethod: paymentMethod,
+//     conditionType: greaterSmaller,
+//   });
+//   try {
+//     const response = await admin.graphql(
+//       `#graphql
+//       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+//         metafieldsSet(metafields: $metafields) {
+//           metafields {
+//             key
+//             namespace
+//             value
+//             createdAt
+//             updatedAt
+//           }
+//           userErrors {
+//             field
+//             message
+//             code
+//           }
+//         }
+//       }`,
+//       {
+//         variables: {
+//           metafields: [
+//             {
+//               key: "hide_payment",
+//               namespace: "cart",
+//               ownerId: shopId,
+//               type: "json",
+//               value: config,
+//             },
+//           ],
+//         },
+//       },
+//     );
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     return json({ error: error.message }, { status: 500 });
+//   }
+// }
+
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
-  console.log("formData->", formData);
-  // formData-> FormData {
-  //   01:52:22 │                     remix │   id: 'gid://shopify/Shop/74655760623',
-  //   01:52:22 │                     remix │   customizeName: 'No name..',
-  //   01:52:22 │                     remix │   paymentMethod: 'Cash On Delivery',
-  //   01:52:22 │                     remix │   'conditionType-0': 'product',
-  //   01:52:22 │                     remix │   'greaterSmaller-0': 'is',
-  //   01:52:22 │                     remix │   'selectedProducts-0': '1, 2',
-  //   01:52:22 │                     remix │   'conditionType-1': 'cart_total',
-  //   01:52:22 │                     remix │   'greaterSmaller-1': 'greater_than',
-  //   01:52:22 │                     remix │   'cartTotal-1': '1000',
-  //   01:52:22 │                     remix │   'conditionType-2': 'shipping_country',
-  //   01:52:22 │                     remix │   'greaterSmaller-2': 'is',
-  //   01:52:22 │                     remix │   'country-2': 'cn'
-  //   01:52:22 │                     remix │ }
+
+  // Extract individual fields from formData
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
-  const conditions = [];
-  for (let i = 0; i < formData.getAll("conditionType").length; i++) {
-    conditions.push({
-      discountType: formData.get(`conditionType-${i}`),
-      greaterOrSmall: formData.get(`greaterSmaller-${i}`),
-      amount: Number(formData.get(`cartTotal-${i}`)) || 0,
-      selectedProducts: formData.get(`selectedProducts-${i}`) || "",
-      country: formData.get(`country-${i}`) || "",
-    });
+
+  // Parse all conditions dynamically
+  const conditionTypes = formData.getAll("conditionType");
+  const greaterSmaller = formData.getAll("greaterSmaller");
+  const cartTotals = formData.getAll("cartTotal");
+  const selectedProducts = formData.getAll("selectedProducts");
+  const countries = formData.get("country");
+
+  // Initialize separate arrays for each condition type
+  const cartTotalConditions = [];
+  const productConditions = [];
+  const shippingCountryConditions = [];
+
+  // Iterate through conditions and categorize them
+  for (let i = 0; i < conditionTypes.length; i++) {
+    const conditionType = conditionTypes[i];
+    const greaterOrSmall = greaterSmaller[i];
+    const amount = Number(cartTotals[i]) || 0;
+    const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
+    const country = countries;
+
+    switch (conditionType) {
+      case "cart_total":
+        cartTotalConditions.push({
+          greaterOrSmall,
+          amount,
+        });
+        break;
+
+      case "product":
+        productConditions.push({
+          greaterOrSmall,
+          products,
+        });
+        break;
+
+      case "shipping_country":
+        shippingCountryConditions.push({
+          greaterOrSmall,
+          country,
+        });
+        break;
+
+      default:
+        console.warn(`Unknown condition type: ${conditionType}`);
+        break;
+    }
   }
+
+  // Construct the config object with categorized conditions
   const config = JSON.stringify({
     shopId: shopId,
     customizeName: customizeName,
     paymentMethod: paymentMethod,
-    conditions: conditions,
+    conditions: {
+      cartTotal: cartTotalConditions,
+      products: productConditions,
+      shippingCountry: shippingCountryConditions,
+    },
   });
+
+  // console.log('config', config)
+  console.log('formData', formData)
+  // return config;
+
   try {
+    // Save the config object as a metafield
     const response = await admin.graphql(
       `#graphql
       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -105,8 +228,11 @@ export async function action({ request }) {
         },
       },
     );
+
     const data = await response.json();
-    return data;
+
+    // return json({ config });
+    return json(data);
   } catch (error) {
     return json({ error: error.message }, { status: 500 });
   }
@@ -114,8 +240,12 @@ export async function action({ request }) {
 
 export default function CustomizationSection() {
   const { id } = useLoaderData();
-  const data = useActionData();
-  console.log('data',data)
+  // const data = useActionData();
+  // const configData = JSON.stringify(data);
+  // const config = configData;
+  // console.log('data', data.metafieldsSet)
+  // console.log('datas', data)
+  // console.log('config', config)
   // console.log()
   return (
     <Page
@@ -133,6 +263,7 @@ export default function CustomizationSection() {
 }
 
 export function Body({ id }) {
+  console.log('id', id)
   const [parentValue, setParentValue] = useState("");
   const [customizeName, setCustomizeName] = useState("No name..");
   const handleChildValue = (childValue) => {
@@ -320,7 +451,7 @@ export function Body({ id }) {
                         onChange={(value) =>
                           handleConditionChange(index, "discountType", value)
                         }
-                        name={`conditionType-${index}`}
+                        name={`conditionType`}
                       />
                     </div>
                     {/* Dropdown 2 */}
@@ -344,7 +475,7 @@ export function Body({ id }) {
                               value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         {/* Input Field */}
                         <TextField
@@ -355,7 +486,7 @@ export function Body({ id }) {
                             handleConditionChange(index, "amount", Number(e))
                           }
                           style={{ flex: 1 }}
-                          name={`cartTotal-${index}`}
+                          name={`cartTotal`}
                         />
                       </div>
                     )}
@@ -375,13 +506,13 @@ export function Body({ id }) {
                               value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         <input
                           type="hidden"
                           label="Selected Products"
                           value={condition.selectedProducts.join(", ")}
-                          name={`selectedProducts-${index}`}
+                          name={`selectedProducts`}
                         />
                         <Button onClick={() => openModalForCondition(index)}>
                           Select Products
@@ -404,7 +535,7 @@ export function Body({ id }) {
                               value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         <Select
                           options={[
@@ -416,7 +547,7 @@ export function Body({ id }) {
                           onChange={(value) =>
                             handleConditionChange(index, "country", value)
                           }
-                          name={`country-${index}`}
+                          name={`country`}
                         />
                       </div>
                     )}
@@ -425,7 +556,7 @@ export function Body({ id }) {
                       <Icon
                         source={DeleteIcon}
                         color="critical"
-                        // style={{ cursor: "pointer" }}
+                      // style={{ cursor: "pointer" }}
                       />
                     </Button>
                   </div>

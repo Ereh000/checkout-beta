@@ -35,29 +35,167 @@ export async function loader({ request }) {
   }
 }
 
+// export async function action({ request }) {
+//   const { admin } = await authenticate.admin(request);
+//   const formData = await request.formData();
+//   console.log("formData->", formData);
+//   // console.log output formData-> FormData {
+//   //   12:52:45 │                     remix │   id: 'gid://shopify/Shop/64666403016',
+//   //   12:52:45 │                     remix │   customizeName: 'No name..',
+//   //   12:52:45 │                     remix │   paymentMethod: 'Cash On Delivery',
+//   //   12:52:45 │                     remix │   conditionType: [ 'product', 'shipping_country', 'cart_total' ],
+//   //   12:52:45 │                     remix │   greaterSmaller: [ 'is', 'is', 'greater_than' ],
+//   //   12:52:45 │                     remix │   selectedProducts: '2, 3',
+//   //   12:52:45 │                     remix │   country: 'in',
+//   //   12:52:45 │                     remix │   cartTotal: '100'
+//   //   12:52:45 │                     remix │ }
+//   const shopId = formData.get("id");
+//   const customizeName = formData.get("customizeName");
+//   const paymentMethod = formData.get("paymentMethod");
+//   const conditionType = formData.get("conditionType");
+//   const greaterSmaller = formData.get("greaterSmaller");
+//   const selectedProducts = formData.get("selectedProducts");
+//   const country = formData.get("country");
+//   const cartTotal = formData.get("cartTotal");
+
+//   if(conditionType.includes('cart_total'))
+//   const condition = [
+//     {
+//       name: 'cart_total',
+//       greaterSmaller: ''
+//     }
+//   ]
+//   // const conditions = [];
+//   for (let i = 0; i < formData.getAll("conditionType").length; i++) {
+//     conditions.push({
+//       discountType: formData.get(`conditionType-${i}`),
+//       greaterOrSmall: formData.get(`greaterSmaller-${i}`),
+//       amount: Number(formData.get(`cartTotal-${i}`)) || 0,
+//       selectedProducts: formData.get(`selectedProducts-${i}`) || "",
+//       country: formData.get(`country-${i}`) || "",
+//     });
+//   }
+//   const config = JSON.stringify({
+//     shopId: shopId,
+//     customizeName: customizeName,
+//     paymentMethod: paymentMethod,
+//     conditionType: greaterSmaller,
+//   });
+//   try {
+//     const response = await admin.graphql(
+//       `#graphql
+//       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+//         metafieldsSet(metafields: $metafields) {
+//           metafields {
+//             key
+//             namespace
+//             value
+//             createdAt
+//             updatedAt
+//           }
+//           userErrors {
+//             field
+//             message
+//             code
+//           }
+//         }
+//       }`,
+//       {
+//         variables: {
+//           metafields: [
+//             {
+//               key: "hide_payment",
+//               namespace: "cart",
+//               ownerId: shopId,
+//               type: "json",
+//               value: config,
+//             },
+//           ],
+//         },
+//       },
+//     );
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     return json({ error: error.message }, { status: 500 });
+//   }
+// }
+
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
+
+  // Extract individual fields from formData
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
-  const conditions = [];
-  for (let i = 0; i < formData.getAll("hideType").length; i++) {
-    conditions.push({
-      discountType: formData.get(`hideType-${i}`),
-      greaterOrSmall: formData.get(`greaterSmaller-${i}`),
-      amount: Number(formData.get(`cartTotal-${i}`)),
-      selectedProducts: formData.get(`selectedProducts-${i}`),
-      country: formData.get(`country-${i}`),
-    });
+
+  // Parse all conditions dynamically
+  const conditionTypes = formData.getAll("conditionType");
+  const greaterSmaller = formData.getAll("greaterSmaller");
+  const cartTotals = formData.getAll("cartTotal");
+  const selectedProducts = formData.getAll("selectedProducts");
+  const countries = formData.get("country");
+
+  // Initialize separate arrays for each condition type
+  const cartTotalConditions = [];
+  const productConditions = [];
+  const shippingCountryConditions = [];
+
+  // Iterate through conditions and categorize them
+  for (let i = 0; i < conditionTypes.length; i++) {
+    const conditionType = conditionTypes[i];
+    const greaterOrSmall = greaterSmaller[i];
+    const amount = Number(cartTotals[i]) || 0;
+    const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
+    const country = countries;
+
+    switch (conditionType) {
+      case "cart_total":
+        cartTotalConditions.push({
+          greaterOrSmall,
+          amount,
+        });
+        break;
+
+      case "product":
+        productConditions.push({
+          greaterOrSmall,
+          products,
+        });
+        break;
+
+      case "shipping_country":
+        shippingCountryConditions.push({
+          greaterOrSmall,
+          country,
+        });
+        break;
+
+      default:
+        console.warn(`Unknown condition type: ${conditionType}`);
+        break;
+    }
   }
+
+  // Construct the config object with categorized conditions
   const config = JSON.stringify({
     shopId: shopId,
     customizeName: customizeName,
     paymentMethod: paymentMethod,
-    conditions: conditions,
+    conditions: {
+      cartTotal: cartTotalConditions,
+      products: productConditions,
+      shippingCountry: shippingCountryConditions,
+    },
   });
+
+  // console.log('config', config)
+  console.log('formData', formData)
+  // return config;
+
   try {
+    // Save the config object as a metafield
     const response = await admin.graphql(
       `#graphql
       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -90,7 +228,9 @@ export async function action({ request }) {
         },
       },
     );
+
     const data = await response.json();
+
     return data;
   } catch (error) {
     return json({ error: error.message }, { status: 500 });
@@ -100,6 +240,8 @@ export async function action({ request }) {
 export default function CustomizationSection() {
   const { id } = useLoaderData();
   const data = useActionData();
+  console.log('data', data)
+  // console.log()
   return (
     <Page
       backAction={{ content: "Settings", url: "#" }}
@@ -116,7 +258,9 @@ export default function CustomizationSection() {
 }
 
 export function Body({ id }) {
+  console.log('id', id)
   const [parentValue, setParentValue] = useState("");
+  const [customizeName, setCustomizeName] = useState("No name..");
   const handleChildValue = (childValue) => {
     setParentValue(childValue);
   };
@@ -124,6 +268,7 @@ export function Body({ id }) {
   // Here's select product model logic
   const [modalActive, setModalActive] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track which condition is currently being edited
   const products = useMemo(
     () => [
       { id: 1, title: "Gift Card" },
@@ -147,8 +292,17 @@ export function Body({ id }) {
   }, []);
 
   const handleConfirmSelection = useCallback(() => {
+    if (currentConditionIndex !== null) {
+      setConditions((prevConditions) =>
+        prevConditions.map((c, i) =>
+          i === currentConditionIndex
+            ? { ...c, selectedProducts: selectedProducts }
+            : c,
+        ),
+      );
+    }
     toggleModal();
-  }, [toggleModal]);
+  }, [currentConditionIndex, selectedProducts, toggleModal]);
 
   const selectedProductTitles = products
     .filter((product) => selectedProducts.includes(product.id))
@@ -168,10 +322,17 @@ export function Body({ id }) {
 
   // Function to add a new condition
   const handleAddCondition = () => {
+    const newDiscountType = "cart_total"; // Default new condition type
+    if (
+      conditions.some((condition) => condition.discountType === newDiscountType)
+    ) {
+      alert("This condition type already exists.");
+      return;
+    }
     setConditions((prevConditions) => [
       ...prevConditions,
       {
-        discountType: "cart_total",
+        discountType: newDiscountType,
         greaterOrSmall: "greater_than",
         amount: 0,
         selectedProducts: [],
@@ -185,6 +346,22 @@ export function Body({ id }) {
     setConditions((prevConditions) =>
       prevConditions.filter((_, i) => i !== index),
     );
+  };
+
+  // Function to handle changes in condition fields
+  const handleConditionChange = (index, field, value) => {
+    setConditions((prevConditions) =>
+      prevConditions.map((c, i) =>
+        i === index ? { ...c, [field]: value } : c,
+      ),
+    );
+  };
+
+  // Function to open modal and set current condition index
+  const openModalForCondition = (index) => {
+    setCurrentConditionIndex(index);
+    setSelectedProducts(conditions[index].selectedProducts);
+    toggleModal();
   };
 
   return (
@@ -209,6 +386,8 @@ export function Body({ id }) {
                   placeholder="Example: Hide Cash on Delivery (COD) For Large Orders"
                   style={{ width: "100%" }}
                   name="customizeName"
+                  value={customizeName}
+                  onChange={(e) => setCustomizeName(e)}
                 />
                 <p
                   style={{
@@ -251,7 +430,7 @@ export function Body({ id }) {
                     }}
                   >
                     {/* Dropdown 1 */}
-                    <div className="" style={{ flexGrow: 1}}>
+                    <div className="" style={{ flexGrow: 1 }}>
                       <Select
                         options={[
                           { label: "Cart Total", value: "cart_total" },
@@ -265,18 +444,17 @@ export function Body({ id }) {
                         style={{ flex: 1 }}
                         value={condition.discountType}
                         onChange={(value) =>
-                          setConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === index ? { ...c, discountType: value } : c,
-                            ),
-                          )
+                          handleConditionChange(index, "discountType", value)
                         }
-                        name={`hideType-${index}`}
+                        name={`conditionType`}
                       />
                     </div>
                     {/* Dropdown 2 */}
                     {condition.discountType === "cart_total" && (
-                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                      <div
+                        className=""
+                        style={{ display: "flex", gap: "10px" }}
+                      >
                         <Select
                           options={[
                             { label: "is greater than", value: "greater_than" },
@@ -286,15 +464,13 @@ export function Body({ id }) {
                           style={{ flex: 1 }}
                           value={condition.greaterOrSmall}
                           onChange={(value) =>
-                            setConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === index
-                                  ? { ...c, greaterOrSmall: value.value }
-                                  : c,
-                              ),
+                            handleConditionChange(
+                              index,
+                              "greaterOrSmall",
+                              value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         {/* Input Field */}
                         <TextField
@@ -302,61 +478,59 @@ export function Body({ id }) {
                           type="number"
                           value={condition.amount}
                           onChange={(e) =>
-                            setConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === index
-                                  ? { ...c, amount: Number(e.target.value) }
-                                  : c,
-                              ),
-                            )
+                            handleConditionChange(index, "amount", Number(e))
                           }
                           style={{ flex: 1 }}
-                          name={`cartTotal-${index}`}
+                          name={`cartTotal`}
                         />
                       </div>
                     )}
                     {condition.discountType === "product" && (
-                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                      <div
+                        className=""
+                        style={{ display: "flex", gap: "10px" }}
+                      >
                         <Select
                           options={[{ label: "is", value: "is" }]}
                           style={{ flex: 1 }}
                           value={condition.greaterOrSmall}
                           onChange={(value) =>
-                            setConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === index
-                                  ? { ...c, greaterOrSmall: value.value }
-                                  : c,
-                              ),
+                            handleConditionChange(
+                              index,
+                              "greaterOrSmall",
+                              value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         <input
                           type="hidden"
                           label="Selected Products"
                           value={condition.selectedProducts.join(", ")}
-                          name={`selectedProducts-${index}`}
+                          name={`selectedProducts`}
                         />
-                        <Button onClick={toggleModal}>Select Products</Button>
+                        <Button onClick={() => openModalForCondition(index)}>
+                          Select Products
+                        </Button>
                       </div>
                     )}
                     {condition.discountType === "shipping_country" && (
-                      <div className="" style={{ display: "flex", gap: '10px' }}>
+                      <div
+                        className=""
+                        style={{ display: "flex", gap: "10px" }}
+                      >
                         <Select
                           options={[{ label: "is", value: "is" }]}
                           style={{ flex: 1 }}
                           value={condition.greaterOrSmall}
                           onChange={(value) =>
-                            setConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === index
-                                  ? { ...c, greaterOrSmall: value.value }
-                                  : c,
-                              ),
+                            handleConditionChange(
+                              index,
+                              "greaterOrSmall",
+                              value,
                             )
                           }
-                          name={`greaterSmaller-${index}`}
+                          name={`greaterSmaller`}
                         />
                         <Select
                           options={[
@@ -366,25 +540,20 @@ export function Body({ id }) {
                           style={{ flex: 1 }}
                           value={condition.country}
                           onChange={(value) =>
-                            setConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === index
-                                  ? { ...c, country: value.value }
-                                  : c,
-                              ),
-                            )
+                            handleConditionChange(index, "country", value)
                           }
-                          name={`country-${index}`}
+                          name={`country`}
                         />
                       </div>
                     )}
                     {/* Trash Icon */}
-                    <Icon
-                      source={DeleteIcon}
-                      color="critical"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleRemoveCondition(index)}
-                    />
+                    <Button onClick={() => handleRemoveCondition(index)}>
+                      <Icon
+                        source={DeleteIcon}
+                        color="critical"
+                      // style={{ cursor: "pointer" }}
+                      />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -396,6 +565,12 @@ export function Body({ id }) {
                   onClick={handleAddCondition}
                 >
                   +Add condition
+                </Button>
+              </div>
+              {/* Submit Button */}
+              <div style={{ marginTop: "20px", textAlign: "center" }}>
+                <Button submit variant="primary" fullWidth>
+                  Submit
                 </Button>
               </div>
             </div>
@@ -456,7 +631,6 @@ export function AutocompleteExample({ onValueChange }) {
     () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
     [],
   );
-
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState(deselectedOptions);

@@ -24,7 +24,9 @@ export function run(input) {
   const metafield = input.shop.metafield;
 
   const parsed = JSON.parse(metafield.value);
-  let cartTotall = parsed.cartTotal;
+
+  console.log('metafield', parsed)
+  // let cartTotall = parsed.cartTotal;
 
   // Configuration values - replace with your store's specific requirements
   const EXCLUDED_PRODUCT_IDS = [8915385155823, 8915385123055]; // Product IDs to exclude

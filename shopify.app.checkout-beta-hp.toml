@@ -1,0 +1,28 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e3344672bc14dd27d97420f5295b0df1"
+application_url = "https://quickly-sh-deadly-peter.trycloudflare.com"
+embedded = true
+name = "checkout-beta-hp"
+handle = "checkout-beta-hp"
+
+[webhooks]
+api_version = "2025-01"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_discounts,write_payment_customizations,write_products"
+
+[auth]
+redirect_urls = [
+  "https://quickly-sh-deadly-peter.trycloudflare.com/auth/callback",
+  "https://quickly-sh-deadly-peter.trycloudflare.com/auth/shopify/callback",
+  "https://quickly-sh-deadly-peter.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
