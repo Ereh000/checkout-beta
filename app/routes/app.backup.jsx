@@ -18,7 +18,13 @@ import {
 import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
 import { useCallback, useMemo, useState } from "react";
 import { authenticate } from "../shopify.server";
-import { Form, json, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  json,
+  useActionData,
+  useFetcher,
+  useLoaderData,
+} from "@remix-run/react";
 
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
@@ -187,11 +193,6 @@ export default function CustomizationSection() {
     <Page
       backAction={{ content: "Settings", url: "#" }}
       title="Hide Payment Method"
-      primaryAction={
-        <Button url="#" variant="primary" submit>
-          Save
-        </Button>
-      }
     >
       <Body id={id} />
     </Page>
@@ -309,6 +310,114 @@ export function Body({ id }) {
     toggleModal();
   };
 
+  // Validation function
+  const fetcher = useFetcher();
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validate customization name
+    if (!customizeName || customizeName.trim() === "") {
+      newErrors.customizeName = "Customization name is required";
+    } else if (customizeName === "No name..") {
+      newErrors.customizeName = "Please enter a valid name";
+    }
+
+    // Validate payment method
+    if (!parentValue || parentValue.trim() === "") {
+      newErrors.paymentMethod = "Payment method is required";
+    }
+
+    // Validate conditions
+    if (conditions.length === 0) {
+      newErrors.conditions = "At least one condition is required";
+    } else {
+      conditions.forEach((condition, index) => {
+        if (condition.discountType === "cart_total" && !cartAmount) {
+          newErrors[`cartAmount`] = "Cart amount is required";
+        }
+        if (
+          condition.discountType === "product" &&
+          condition.selectedProducts.length === 0
+        ) {
+          newErrors[`products`] = "At least one product must be selected";
+        }
+        if (
+          condition.discountType === "shipping_country" &&
+          !condition.country
+        ) {
+          newErrors[`country`] = "Country is required";
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append("id", id);
+    formData.append("customizeName", customizeName);
+    formData.append("paymentMethod", parentValue);
+
+    // Add conditions
+    conditions.forEach((condition, index) => {
+      formData.append(`conditionType`, condition.discountType);
+      formData.append(`greaterSmaller`, condition.greaterOrSmall);
+
+      if (condition.discountType === "cart_total") {
+        formData.append(`cartTotal`, cartAmount);
+      } else if (condition.discountType === "product") {
+        formData.append(
+          `selectedProducts`,
+          condition.selectedProducts.join(","),
+        );
+      } else if (condition.discountType === "shipping_country") {
+        formData.append(`country`, condition.country);
+      }
+    });
+
+    try {
+      await fetcher.submit(formData, {
+        method: "POST",
+        action: ".", // Update with your actual route
+      });
+
+      // Handle successful submission
+      if (fetcher.data?.error) {
+        throw new Error(fetcher.data.error);
+      }
+
+      // Reset form or show success message
+      if (fetcher.state === "idle" && !fetcher.data?.error) {
+        // Optional: Reset form here
+        // setCustomizeName("");
+        // setParentValue("");
+        // setConditions([...]);
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      setErrors({
+        ...errors,
+        form: "Failed to save. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Grid>
       <Grid.Cell columnSpan={{ md: 12, lg: 8, xl: 8 }}>
@@ -319,7 +428,7 @@ export function Body({ id }) {
             border: "1px solid #E5E7EB",
           }}
         >
-          <Form method="POST">
+          <Form method="POST" onSubmit={handleSubmit}>
             <input type="hidden" name="id" value={id} />
             <div className="formdetails">
               {/* Customization Name */}
@@ -332,7 +441,16 @@ export function Body({ id }) {
                   style={{ width: "100%" }}
                   name="customizeName"
                   value={customizeName}
-                  onChange={(e) => setCustomizeName(e)}
+                  onChange={(e) => {
+                    setCustomizeName(e);
+                    if (errors.customizeName) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        customizeName: undefined,
+                      }));
+                    }
+                  }}
+                  error={errors.customizeName}
                 />
                 <p
                   style={{
@@ -344,12 +462,30 @@ export function Body({ id }) {
                   This is not visible to the customer
                 </p>
               </div>
+
               {/* Select Payment Method */}
               <div style={{ marginTop: "20px" }}>
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
                   Select Payment Method
                 </label>
-                <AutocompleteExample onValueChange={handleChildValue} />
+                <AutocompleteExample
+                  onValueChange={(value) => {
+                    handleChildValue(value);
+                    if (errors.paymentMethod) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        paymentMethod: undefined,
+                      }));
+                    }
+                  }}
+                />
+                {errors.paymentMethod && (
+                  <div
+                    style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
+                  >
+                    {errors.paymentMethod}
+                  </div>
+                )}
                 <input type="hidden" name="paymentMethod" value={parentValue} />
                 <p
                   style={{
@@ -362,8 +498,21 @@ export function Body({ id }) {
                   press Enter to add it to the list.
                 </p>
               </div>
+
               {/* Condition Builder */}
               <div style={{ marginTop: "20px" }}>
+                {errors.conditions && (
+                  <div
+                    style={{
+                      color: "red",
+                      fontSize: "12px",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    {errors.conditions}
+                  </div>
+                )}
+
                 {conditions.map((condition, index) => (
                   <div
                     key={index}
@@ -394,12 +543,10 @@ export function Body({ id }) {
                         name={`conditionType`}
                       />
                     </div>
-                    {/* Dropdown 2 */}
+
+                    {/* Condition-specific fields */}
                     {condition.discountType === "cart_total" && (
-                      <div
-                        className=""
-                        style={{ display: "flex", gap: "10px" }}
-                      >
+                      <div style={{ display: "flex", gap: "10px" }}>
                         <Select
                           options={[
                             { label: "is greater than", value: "greater_than" },
@@ -417,25 +564,33 @@ export function Body({ id }) {
                           }
                           name={`greaterSmaller`}
                         />
-                        {/* Input Field */}
                         <TextField
                           placeholder="100"
                           type="number"
-                          // value={condition.amount}
-                          // onChange={(value) =>
-                          //   handleConditionChange(index, "amount", value)
-                          // }
                           value={cartAmount}
-                          onChange={(value) => setCartAmount(value)}
+                          onChange={(value) => {
+                            setCartAmount(value);
+                            if (errors[`cartAmount`]) {
+                              setErrors((prev) => ({
+                                ...prev,
+                                [`cartAmount`]: undefined,
+                              }));
+                            }
+                          }}
                           style={{ flex: 1 }}
                           name="cartTotal"
+                          error={errors[`cartAmount`]}
                         />
                       </div>
                     )}
+
                     {condition.discountType === "product" && (
                       <div
-                        className=""
-                        style={{ display: "flex", gap: "10px" }}
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                        }}
                       >
                         <Select
                           options={[{ label: "is", value: "is" }]}
@@ -456,16 +611,22 @@ export function Body({ id }) {
                           value={condition.selectedProducts.join(", ")}
                           name={`selectedProducts`}
                         />
-                        <Button onClick={() => openModalForCondition(index)}>
+                        <Button
+                          onClick={() => openModalForCondition(index)}
+                          disabled={isSubmitting}
+                        >
                           Select Products
                         </Button>
+                        {errors[`products`] && (
+                          <div style={{ color: "red", fontSize: "12px" }}>
+                            {errors[`products`]}
+                          </div>
+                        )}
                       </div>
                     )}
+
                     {condition.discountType === "shipping_country" && (
-                      <div
-                        className=""
-                        style={{ display: "flex", gap: "10px" }}
-                      >
+                      <div style={{ display: "flex", gap: "10px" }}>
                         <Select
                           options={[{ label: "is", value: "is" }]}
                           style={{ flex: 1 }}
@@ -486,37 +647,52 @@ export function Body({ id }) {
                           ]}
                           style={{ flex: 1 }}
                           value={condition.country}
-                          onChange={(value) =>
-                            handleConditionChange(index, "country", value)
-                          }
+                          onChange={(value) => {
+                            handleConditionChange(index, "country", value);
+                            if (errors[`country`]) {
+                              setErrors((prev) => ({
+                                ...prev,
+                                [`country`]: undefined,
+                              }));
+                            }
+                          }}
                           name={`country`}
+                          error={errors[`country`]}
                         />
                       </div>
                     )}
+
                     {/* Trash Icon */}
-                    <Button onClick={() => handleRemoveCondition(index)}>
-                      <Icon
-                        source={DeleteIcon}
-                        color="critical"
-                        // style={{ cursor: "pointer" }}
-                      />
+                    <Button
+                      onClick={() => handleRemoveCondition(index)}
+                      disabled={isSubmitting}
+                    >
+                      <Icon source={DeleteIcon} color="critical" />
                     </Button>
                   </div>
                 ))}
               </div>
+
               {/* Add Condition Button */}
               <div style={{ marginTop: "20px", textAlign: "center" }}>
                 <Button
                   variant="primary"
                   fullWidth
                   onClick={handleAddCondition}
+                  disabled={isSubmitting}
                 >
                   +Add condition
                 </Button>
               </div>
+
               {/* Submit Button */}
               <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button submit variant="primary" fullWidth>
+                <Button
+                  submit
+                  variant="primary"
+                  fullWidth
+                  loading={isSubmitting}
+                >
                   Submit
                 </Button>
               </div>
@@ -624,7 +800,7 @@ export function AutocompleteExample({ onValueChange }) {
   );
 
   return (
-    <div style={{ height: "" }}>
+    <div>
       <Autocomplete
         options={options}
         selected={selectedOptions}
