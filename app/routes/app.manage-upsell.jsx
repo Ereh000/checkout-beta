@@ -8,14 +8,8 @@ import {
   Button,
   Modal,
   Text,
-  Icon,
-  Card,
 } from "@shopify/polaris";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CircleUpIcon,
-} from "@shopify/polaris-icons"; // Importing Close Icon
+import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
 import { Link } from "@remix-run/react";
 
 export default function PaymentCustomization() {
@@ -24,11 +18,11 @@ export default function PaymentCustomization() {
 
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }}
-      title="Payment Customizations"
+      //   backAction={{ content: "Settings", url: "#" }}
+      title="Manage Upsells"
       primaryAction={
-        <Button variant="primary" onClick={() => setIsOpen(true)}>
-          Create Customization
+        <Button variant="primary" url="/app/create-upsell">
+          Create Upsell
         </Button>
       }
     >
@@ -67,9 +61,9 @@ export default function PaymentCustomization() {
       >
         <Modal.Section>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-
             {/* Option 1: Hide Payment Method */}
-            <Link to={'/app/hide-payment'}
+            <Link
+              to={"/app/hide-payment"}
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -99,7 +93,8 @@ export default function PaymentCustomization() {
             </Link>
 
             {/* Option 2: Change Payment Method Name */}
-            <Link to={'/app/rename-payment'}
+            <Link
+              to={"/app/rename-payment"}
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -180,7 +175,8 @@ export default function PaymentCustomization() {
                   Don't see what you looking for
                 </Text>
                 <Text as="span" variant="bodySm" color="subdued">
-                  Submit a feature request and we will he happy to support you business need
+                  Submit a feature request and we will he happy to support you
+                  business need
                 </Text>
               </div>
               <div className="" style={{ width: "1.4rem", display: "flex" }}>

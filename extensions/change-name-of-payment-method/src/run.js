@@ -23,7 +23,7 @@ export function run(input) {
   const paymentMethod = parsed.paymentMethod;
 
   console.log("paymentMethod:", input.paymentMethods);
-  console.log("newName:", newName);
+  // console.log("newName:", newName);
 
   // Map over payment methods and modify their names
   const updatedMethods = input.paymentMethods.map((method) => {
