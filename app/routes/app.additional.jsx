@@ -11,7 +11,11 @@ import {
   Icon,
   Card,
 } from "@shopify/polaris";
-import { ArrowLeftIcon, ArrowRightIcon, CircleUpIcon } from "@shopify/polaris-icons"; // Importing Close Icon
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CircleUpIcon,
+} from "@shopify/polaris-icons"; // Importing Close Icon
 import { Link } from "@remix-run/react";
 
 export default function PageExample() {
@@ -33,10 +37,10 @@ export default function PageExample() {
         title="How to use Payment Customizations"
         primaryAction={{
           content: "Learn more",
-          onAction: () => { },
+          onAction: () => {},
         }}
         description="Thank you for using Checkout Plus. Here is an example of using payment customizations on the checkout."
-        popoverActions={[{ content: "Dismiss", onAction: () => { } }]}
+        popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
       >
         <VideoThumbnail
           videoLength={80}
@@ -56,27 +60,62 @@ export default function PageExample() {
       </LegacyCard>
 
       {/* Polaris Modal */}
-      <Modal open={isOpen} onClose={() => setIsOpen(false)} title="Select A Customization">
+      <Modal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Select A Customization"
+      >
         <Modal.Section>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* Option 1 */}
-            <Button fullWidth plain>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+
+            {/* Option 1: Hide Payment Method */}
+            <Link to={'/app/hide-payment'}
+              style={{
+                textDecoration: "none",
+                color: "#000",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
                 <Text as="span" variant="bodyMd" fontWeight="bold">
                   Hide Payment Method
                 </Text>
                 <Text as="span" variant="bodySm" color="subdued">
-                  Hide payment methods based on order totals
+                  Hide payment method based on Order totals
                 </Text>
-                <div className="" style={{ width: '2rem' }}>
-                  <ArrowRightIcon />
-                </div>
               </div>
-            </Button>
+              <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                <ArrowRightIcon />
+              </div>
+            </Link>
 
             {/* Option 2 */}
-            <Link >
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <Link
+              style={{
+                textDecoration: "none",
+                color: "#000",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
                 <Text as="span" variant="bodyMd" fontWeight="bold">
                   Change Name of Payment Method
                 </Text>
@@ -84,35 +123,73 @@ export default function PageExample() {
                   Update the name of a specific payment method
                 </Text>
               </div>
+              <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                <ArrowRightIcon />
+              </div>
             </Link>
 
             {/* Option 3 */}
-            <Button fullWidth plain>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <Link
+              style={{
+                textDecoration: "none",
+                color: "#000",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
                 <Text as="span" variant="bodyMd" fontWeight="bold">
                   Reorder Payment Method
                 </Text>
                 <Text as="span" variant="bodySm" color="subdued">
-                  Control the order in which your payment methods are displayed
+                  Reorder the payment methods to suit your preferences
                 </Text>
               </div>
-            </Button>
+              <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                <ArrowRightIcon />
+              </div>
+            </Link>
 
-            {/* Option 4 */}
-            <Button fullWidth plain>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {/* Option 2 */}
+            <Link
+              style={{
+                textDecoration: "none",
+                color: "#000",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
                 <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Don't see what you are looking for?
+                  Don't see what you looking for
                 </Text>
                 <Text as="span" variant="bodySm" color="subdued">
-                  Submit a feature request and we will be happy to support your business needs
+                  Submit a feature request and we will he happy to support you business need
                 </Text>
               </div>
-            </Button>
+              <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                <ArrowRightIcon />
+              </div>
+            </Link>
           </div>
         </Modal.Section>
       </Modal>
     </Page>
   );
 }
-

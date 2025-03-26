@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
-application_url = "https://pools-jean-chronicle-considerations.trycloudflare.com"
+application_url = "https://borders-leslie-lonely-another.trycloudflare.com"
 embedded = true
 name = "checkout-beta"
 handle = "checkout-beta-1"
@@ -27,9 +27,9 @@ scopes = "write_products,write_discounts,write_payment_customizations"
 
 [auth]
 redirect_urls = [
-  "https://pools-jean-chronicle-considerations.trycloudflare.com/auth/callback",
-  "https://pools-jean-chronicle-considerations.trycloudflare.com/auth/shopify/callback",
-  "https://pools-jean-chronicle-considerations.trycloudflare.com/api/auth/callback"
+  "https://borders-leslie-lonely-another.trycloudflare.com/auth/callback",
+  "https://borders-leslie-lonely-another.trycloudflare.com/auth/shopify/callback",
+  "https://borders-leslie-lonely-another.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

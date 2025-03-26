@@ -17,16 +17,22 @@ const NO_CHANGES = {
  * @returns {FunctionRunResult}
  */
 export function run(input) {
+  const metafield = input.shop.metafield;
+  const parsed = JSON.parse(metafield.value);
+  const newName = parsed.newName;
+  const paymentMethod = parsed.paymentMethod;
+
   console.log("paymentMethod:", input.paymentMethods);
+  console.log("newName:", newName);
 
   // Map over payment methods and modify their names
   const updatedMethods = input.paymentMethods.map((method) => {
     // Example: Rename "Cash On Delivery" to "Cash On Delivery 20%"
-    if (method.name === "Cash on Delivery (COD)") {
+    if (method.name === paymentMethod) {
       console.log("method->", method.name);
       return {
         ...method,
-        name: "Cash On Delivery 20%",
+        name: newName,
       };
     }
     return method;
