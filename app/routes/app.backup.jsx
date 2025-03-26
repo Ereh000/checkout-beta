@@ -1,5 +1,4 @@
-// backup.jsx
-
+// Import necessary components and libraries from Shopify Polaris UI framework
 import {
   Card,
   TextField,
@@ -15,9 +14,17 @@ import {
   Listbox,
   Checkbox,
 } from "@shopify/polaris";
+
+// Import custom icons for the application
 import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
+
+// Import React hooks and utilities
 import { useCallback, useMemo, useState } from "react";
+
+// Import authentication and API utility functions from shopify.server
 import { authenticate } from "../shopify.server";
+
+// Import Remix Run hooks and utilities for handling server-side actions and data fetching
 import {
   Form,
   json,
@@ -26,9 +33,12 @@ import {
   useLoaderData,
 } from "@remix-run/react";
 
+// Loader function to fetch shop data from Shopify API
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
+
   try {
+    // Query the Shopify GraphQL API to get the shop ID
     const response = await admin.graphql(`
       query{
         shop{
@@ -37,52 +47,41 @@ export async function loader({ request }) {
       }
     `);
     const shop = await response.json();
+
+    // Return the shop ID as part of the loader data
     return { id: shop.data.shop.id };
   } catch (error) {
+    // Handle errors by returning an error message
     return { message: "owner not found", error: error };
   }
 }
 
+// Action function to handle form submissions and update Shopify metafields
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
-  // formData-> FormData {
-  //  id: 'gid://shopify/Shop/74655760623',
-  //  customizeName: 'No name..',
-  //  paymentMethod: 'Cash On Delivery',
-  //  'conditionType-0': 'product',
-  //  'greaterSmaller-0': 'is',
-  //  'selectedProducts-0': '1, 2',
-  //  'conditionType-1': 'cart_total',
-  //  'greaterSmaller-1': 'greater_than',
-  //  'cartTotal-1': '1000',
-  //  'conditionType-2': 'shipping_country',
-  //  'greaterSmaller-2': 'is',
-  //  'country-2': 'cn'
-  //}
-  // Extract individual fields from formData
 
+  // Extract form data submitted via POST request
   const formData = await request.formData();
   console.log("formData->", formData);
 
+  // Parse individual form fields
   const shopId = formData.get("id");
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
 
-  // Parse all conditions dynamically
+  // Extract all conditions dynamically from the submitted form data
   const conditionTypes = formData.getAll("conditionType");
   const greaterSmaller = formData.getAll("greaterSmaller");
   const cartTotals = formData.get("cartTotal");
   const selectedProducts = formData.getAll("selectedProducts");
   const countries = formData.get("country");
 
-  // Form Validation
-
-  // Initialize separate arrays for each condition type
+  // Initialize arrays for different types of conditions
   const cartTotalConditions = [];
   const productConditions = [];
   const shippingCountryConditions = [];
 
-  // Iterate through conditions and categorize them
+  // Categorize conditions based on their type
   for (let i = 0; i < conditionTypes.length; i++) {
     const conditionType = conditionTypes[i];
     const greaterOrSmall = greaterSmaller[i];
@@ -90,6 +89,7 @@ export async function action({ request }) {
     const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
     const country = countries;
 
+    // Assign conditions to respective categories
     switch (conditionType) {
       case "cart_total":
         cartTotalConditions.push({
@@ -97,28 +97,25 @@ export async function action({ request }) {
           amount,
         });
         break;
-
       case "product":
         productConditions.push({
           greaterOrSmall,
           products,
         });
         break;
-
       case "shipping_country":
         shippingCountryConditions.push({
           greaterOrSmall,
           country,
         });
         break;
-
       default:
         console.warn(`Unknown condition type: ${conditionType}`);
         break;
     }
   }
 
-  // Construct the config object with categorized conditions
+  // Construct the configuration object with categorized conditions
   const config = JSON.stringify({
     shopId: shopId,
     customizeName: customizeName,
@@ -129,6 +126,7 @@ export async function action({ request }) {
       shippingCountry: shippingCountryConditions,
     },
   });
+
   const configJson = {
     shopId: shopId,
     customizeName: customizeName,
@@ -139,12 +137,12 @@ export async function action({ request }) {
       shippingCountry: shippingCountryConditions,
     },
   };
+
   console.log("configJson:", configJson);
   console.log("condition:", configJson.conditions);
 
-  // return configJson;
-
   try {
+    // Send a GraphQL mutation to update Shopify metafields with the configuration
     const response = await admin.graphql(
       `#graphql
       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -175,64 +173,69 @@ export async function action({ request }) {
             },
           ],
         },
-      },
+      }
     );
+
     const data = await response.json();
-    return json(data, configJson);
+
+    // Return the response data along with the configuration object
+    return json(data);
   } catch (error) {
+    // Handle errors by returning an error response
     return json({ error: error.message }, { status: 500 });
   }
 }
 
+// Main component rendering the page
 export default function CustomizationSection() {
-  const { id } = useLoaderData();
-  const data = useActionData();
-  console.log("data", data);
-  // console.log()
+  const { id } = useLoaderData(); // Fetch shop ID from loader data
+  const dataa = useActionData(); // Fetch action data after form submission
+
+  console.log("data", dataa);
+
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }}
-      title="Hide Payment Method"
+      backAction={{ content: "Settings", url: "#" }} // Back button navigation
+      title="Hide Payment Method" // Page title
     >
-      <Body id={id} />
+      <Body id={id} /> {/* Render the main form body */}
     </Page>
   );
 }
 
+// Component responsible for rendering the form fields and interactions
 export function Body({ id }) {
-  const [parentValue, setParentValue] = useState("");
-  const [customizeName, setCustomizeName] = useState("No name..");
+  const [parentValue, setParentValue] = useState(""); // Parent value state
+  const [customizeName, setCustomizeName] = useState("No name.."); // Customization name state
   const handleChildValue = (childValue) => {
-    setParentValue(childValue);
+    setParentValue(childValue); // Handle child value change
   };
 
-  // Here's select product model logic
+  // Modal logic for selecting products
   const [modalActive, setModalActive] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState([]);
-  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track which condition is currently being edited
+  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
+
+  // Predefined list of products for selection
   const products = useMemo(
     () => [
       {
         id: "gid://shopify/ProductVariant/46322014617839",
         title: "The Compare at Price Snowboard",
       },
-      // { id: 2, title: "$10" },
-      // { id: 3, title: "$25" },
-      // { id: 4, title: "$50" },
-      // { id: 5, title: "$100" },
+      // Additional product entries can be added here
     ],
-    [],
+    []
   );
 
-  const toggleModal = useCallback(
-    () => setModalActive((active) => !active),
-    [],
-  );
+  const toggleModal = useCallback(() => {
+    setModalActive((active) => !active); // Toggle modal visibility
+  }, []);
 
   const handleSelectProduct = useCallback((id) => {
     setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    ); // Add or remove selected products
   }, []);
 
   const handleConfirmSelection = useCallback(() => {
@@ -241,17 +244,17 @@ export function Body({ id }) {
         prevConditions.map((c, i) =>
           i === currentConditionIndex
             ? { ...c, selectedProducts: selectedProducts }
-            : c,
-        ),
+            : c
+        )
       );
     }
-    toggleModal();
+    toggleModal(); // Confirm product selection and close modal
   }, [currentConditionIndex, selectedProducts, toggleModal]);
 
   const selectedProductTitles = products
     .filter((product) => selectedProducts.includes(product.id))
     .map((product) => product.title)
-    .join(", ");
+    .join(", "); // Display selected product titles
 
   // State to manage the list of conditions
   const [conditions, setConditions] = useState([
@@ -270,7 +273,7 @@ export function Body({ id }) {
     if (
       conditions.some((condition) => condition.discountType === newDiscountType)
     ) {
-      alert("This condition type already exists.");
+      alert("This condition type already exists."); // Prevent duplicate condition types
       return;
     }
     setConditions((prevConditions) => [
@@ -288,7 +291,7 @@ export function Body({ id }) {
   // Function to remove a condition
   const handleRemoveCondition = (index) => {
     setConditions((prevConditions) =>
-      prevConditions.filter((_, i) => i !== index),
+      prevConditions.filter((_, i) => i !== index)
     );
   };
 
@@ -296,12 +299,12 @@ export function Body({ id }) {
   const handleConditionChange = (index, field, value) => {
     setConditions((prevConditions) =>
       prevConditions.map((c, i) =>
-        i === index ? { ...c, [field]: value } : c,
-      ),
+        i === index ? { ...c, [field]: value } : c
+      )
     );
   };
 
-  const [cartAmount, setCartAmount] = useState(0);
+  const [cartAmount, setCartAmount] = useState(0); // Cart amount state
 
   // Function to open modal and set current condition index
   const openModalForCondition = (index) => {
@@ -359,6 +362,7 @@ export function Body({ id }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setIsSubmitting(true);
 
     if (!validateForm()) {
@@ -376,13 +380,12 @@ export function Body({ id }) {
     conditions.forEach((condition, index) => {
       formData.append(`conditionType`, condition.discountType);
       formData.append(`greaterSmaller`, condition.greaterOrSmall);
-
       if (condition.discountType === "cart_total") {
         formData.append(`cartTotal`, cartAmount);
       } else if (condition.discountType === "product") {
         formData.append(
           `selectedProducts`,
-          condition.selectedProducts.join(","),
+          condition.selectedProducts.join(",")
         );
       } else if (condition.discountType === "shipping_country") {
         formData.append(`country`, condition.country);
@@ -392,7 +395,7 @@ export function Body({ id }) {
     try {
       await fetcher.submit(formData, {
         method: "POST",
-        action: ".", // Update with your actual route
+        action: ".", // Replace with actual route
       });
 
       // Handle successful submission
@@ -430,6 +433,7 @@ export function Body({ id }) {
         >
           <Form method="POST" onSubmit={handleSubmit}>
             <input type="hidden" name="id" value={id} />
+
             <div className="formdetails">
               {/* Customization Name */}
               <div>
@@ -512,13 +516,12 @@ export function Body({ id }) {
                     {errors.conditions}
                   </div>
                 )}
-
                 {conditions.map((condition, index) => (
                   <div
                     key={index}
                     style={{
                       display: "flex",
-                      alignItems: "center",
+                      alignItems: "self-start",
                       gap: "10px",
                       marginBottom: "20px",
                     }}
@@ -559,7 +562,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value,
+                              value
                             )
                           }
                           name={`greaterSmaller`}
@@ -600,7 +603,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value,
+                              value
                             )
                           }
                           name={`greaterSmaller`}
@@ -635,7 +638,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value,
+                              value
                             )
                           }
                           name={`greaterSmaller`}
@@ -698,6 +701,7 @@ export function Body({ id }) {
               </div>
             </div>
           </Form>
+
           {/* Product Model */}
           <Modal
             open={modalActive}
@@ -749,11 +753,13 @@ export function Body({ id }) {
   );
 }
 
+// Custom autocomplete component
 export function AutocompleteExample({ onValueChange }) {
   const deselectedOptions = useMemo(
     () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
-    [],
+    []
   );
+
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState(deselectedOptions);
@@ -767,11 +773,11 @@ export function AutocompleteExample({ onValueChange }) {
       }
       const filterRegex = new RegExp(value, "i");
       const resultOptions = deselectedOptions.filter((option) =>
-        option.label.match(filterRegex),
+        option.label.match(filterRegex)
       );
       setOptions(resultOptions);
     },
-    [deselectedOptions],
+    [deselectedOptions]
   );
 
   const updateSelection = useCallback(
@@ -786,7 +792,7 @@ export function AutocompleteExample({ onValueChange }) {
       setInputValue(selectedValue[0] || "");
       onValueChange(selectedValue[0] || "");
     },
-    [options, onValueChange],
+    [options, onValueChange]
   );
 
   const textField = (

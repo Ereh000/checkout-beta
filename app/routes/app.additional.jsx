@@ -1,159 +1,118 @@
-// app/routes/admin.jsx
 import React, { useState } from "react";
-import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
-import { Page, Card, TextField, Button } from "@shopify/polaris";
-import { authenticate } from "../shopify.server";
+import {
+  Page,
+  LegacyCard,
+  MediaCard,
+  VideoThumbnail,
+  EmptyState,
+  Button,
+  Modal,
+  Text,
+  Icon,
+  Card,
+} from "@shopify/polaris";
+import { ArrowLeftIcon, ArrowRightIcon, CircleUpIcon } from "@shopify/polaris-icons"; // Importing Close Icon
+import { Link } from "@remix-run/react";
 
-export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request);
-  try {
-    const response = await admin.graphql(`
-      query{
-        shop{
-          id
-        }
-      }
-    `);
-    const shop = await response.json();
-    // console.log(shop.data.shop.id);
-    return { id: shop.data.shop.id };
-  } catch (error) {
-    return { message: "owner not found", error: error };
-  }
-}
+export default function PageExample() {
+  // State to control modal visibility
+  const [isOpen, setIsOpen] = useState(false);
 
-export async function action({ request }) {
-  const { admin } = await authenticate.admin(request); // Adjust authentication as needed for your environment
-  const formData = await request.formData();
-
-  console.log("formData:", formData);
-
-  const shopId = formData.get("shopId");
-  const thresholdHigh = formData.get("thresholdHigh");
-  const discountHigh = formData.get("discountHigh");
-  const thresholdLow = formData.get("thresholdLow");
-  const discountLow = formData.get("discountLow");
-
-  const config = JSON.stringify({
-    shopId: shopId,
-    thresholdHigh: Number(thresholdHigh),
-    discountHigh: Number(discountHigh),
-    thresholdLow: Number(thresholdLow),
-    discountLow: Number(discountLow),
-  });
-
-  try {
-    const response = await admin.graphql(
-      `#graphql
-      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields {
-            key
-            namespace
-            value
-            createdAt
-            updatedAt
-          }
-          userErrors {
-            field
-            message
-            code
-          }
-        }
-      }`,
-      {
-        variables: {
-          metafields: [
-            {
-              key: "discount",
-              namespace: "onproduct",
-              ownerId: shopId,
-              type: "json",
-              value: config,
-            },
-          ],
-        },
-      },
-    );
-
-    const data = await response.json();
-
-    return data;
-  } catch (error) {
-    console.log(error);
-    return json({ error: error.message }, { status: 500 });
-  }
-}
-
-export default function AdminPage() {
-  const data = useActionData();
-  const { id } = useLoaderData();
-  console.log("actiondata:", data, "shopId:", id);
-  const [formData, setFormData] = useState({
-    thresholdHigh: "",
-    discountHigh: "",
-    thresholdLow: "",
-    discountLow: "",
-  });
-
-  const handleChange = (name, value) => {
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
   return (
-    <Page title="Dynamic Discount Configuration" fullWidth>
-      <div style={{ maxWidth: "600px", margin: "auto", padding: "1rem" }}>
-        <Card sectioned>
-          <Form
-            method="post"
-            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-          >
-            <input type="hidden" name="shopId" value={id} />
-            <TextField
-              label="High Discount Quantity Threshold"
-              name="thresholdHigh"
-              type="number"
-              placeholder="e.g., 5"
-              helpText="Minimum quantity for high discount"
-              value={formData.thresholdHigh}
-              onChange={(value) => handleChange("thresholdHigh", value)}
-            />
-            <TextField
-              label="High Discount Percentage"
-              name="discountHigh"
-              type="text"
-              placeholder="e.g., 0.15 for 15%"
-              helpText="Discount rate when threshold is met"
-              value={formData.discountHigh}
-              onChange={(value) => handleChange("discountHigh", value)}
-            />
-            <TextField
-              label="Low Discount Quantity Threshold"
-              name="thresholdLow"
-              type="number"
-              placeholder="e.g., 3"
-              helpText="Minimum quantity for low discount"
-              value={formData.thresholdLow}
-              onChange={(value) => handleChange("thresholdLow", value)}
-            />
-            <TextField
-              label="Low Discount Percentage"
-              name="discountLow"
-              type="text"
-              placeholder="e.g., 0.10 for 10%"
-              helpText="Discount rate when threshold is met"
-              value={formData.discountLow}
-              onChange={(value) => handleChange("discountLow", value)}
-            />
-            <Button primary submit>
-              Save Configuration
+    <Page
+      backAction={{ content: "Settings", url: "#" }}
+      title="Payment Customizations"
+      primaryAction={
+        <Button variant="primary" onClick={() => setIsOpen(true)}>
+          Create Customization
+        </Button>
+      }
+    >
+      {/* Existing content */}
+      <MediaCard
+        title="How to use Payment Customizations"
+        primaryAction={{
+          content: "Learn more",
+          onAction: () => { },
+        }}
+        description="Thank you for using Checkout Plus. Here is an example of using payment customizations on the checkout."
+        popoverActions={[{ content: "Dismiss", onAction: () => { } }]}
+      >
+        <VideoThumbnail
+          videoLength={80}
+          thumbnailUrl="https://burst.shopifycdn.com/photos/business-woman-smiling-in-office.jpg?width=1850"
+          onClick={() => console.log("clicked")}
+        />
+      </MediaCard>
+
+      <br />
+      <LegacyCard sectioned>
+        <EmptyState
+          heading="Manage your inventory transfers"
+          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+        >
+          <p>Track and receive your incoming inventory from suppliers.</p>
+        </EmptyState>
+      </LegacyCard>
+
+      {/* Polaris Modal */}
+      <Modal open={isOpen} onClose={() => setIsOpen(false)} title="Select A Customization">
+        <Modal.Section>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* Option 1 */}
+            <Button fullWidth plain>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text as="span" variant="bodyMd" fontWeight="bold">
+                  Hide Payment Method
+                </Text>
+                <Text as="span" variant="bodySm" color="subdued">
+                  Hide payment methods based on order totals
+                </Text>
+                <div className="" style={{ width: '2rem' }}>
+                  <ArrowRightIcon />
+                </div>
+              </div>
             </Button>
-          </Form>
-        </Card>
-      </div>
+
+            {/* Option 2 */}
+            <Link >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text as="span" variant="bodyMd" fontWeight="bold">
+                  Change Name of Payment Method
+                </Text>
+                <Text as="span" variant="bodySm" color="subdued">
+                  Update the name of a specific payment method
+                </Text>
+              </div>
+            </Link>
+
+            {/* Option 3 */}
+            <Button fullWidth plain>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text as="span" variant="bodyMd" fontWeight="bold">
+                  Reorder Payment Method
+                </Text>
+                <Text as="span" variant="bodySm" color="subdued">
+                  Control the order in which your payment methods are displayed
+                </Text>
+              </div>
+            </Button>
+
+            {/* Option 4 */}
+            <Button fullWidth plain>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text as="span" variant="bodyMd" fontWeight="bold">
+                  Don't see what you are looking for?
+                </Text>
+                <Text as="span" variant="bodySm" color="subdued">
+                  Submit a feature request and we will be happy to support your business needs
+                </Text>
+              </div>
+            </Button>
+          </div>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
+

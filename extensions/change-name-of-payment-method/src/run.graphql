@@ -1,0 +1,6 @@
+query RunInput {
+  paymentMethods {
+    id
+    name
+  }
+}

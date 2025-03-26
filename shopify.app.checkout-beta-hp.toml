@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "e3344672bc14dd27d97420f5295b0df1"
-application_url = "https://quickly-sh-deadly-peter.trycloudflare.com"
+application_url = "https://dl-mortgages-offered-aim.trycloudflare.com"
 embedded = true
 name = "checkout-beta-hp"
 handle = "checkout-beta-hp"
@@ -15,9 +15,9 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://quickly-sh-deadly-peter.trycloudflare.com/auth/callback",
-  "https://quickly-sh-deadly-peter.trycloudflare.com/auth/shopify/callback",
-  "https://quickly-sh-deadly-peter.trycloudflare.com/api/auth/callback"
+  "https://dl-mortgages-offered-aim.trycloudflare.com/auth/callback",
+  "https://dl-mortgages-offered-aim.trycloudflare.com/auth/shopify/callback",
+  "https://dl-mortgages-offered-aim.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
