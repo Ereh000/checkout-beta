@@ -84,7 +84,7 @@ export default function PageExample() {
                   display: "flex",
                   flexDirection: "column",
                   width: "100%",
-                }}
+                }}              
               >
                 <Text as="span" variant="bodyMd" fontWeight="bold">
                   Hide Payment Method
