@@ -1,35 +1,35 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
-application_url = "https://cayman-seemed-mountains-switches.trycloudflare.com"
-embedded = true
 name = "checkout-beta"
 handle = "checkout-beta-1"
+application_url = "https://tuesday-bowling-oh-annotation.trycloudflare.com"
+embedded = true
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2025-01"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_discounts,write_payment_customizations"
+scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://cayman-seemed-mountains-switches.trycloudflare.com/auth/callback",
-  "https://cayman-seemed-mountains-switches.trycloudflare.com/auth/shopify/callback",
-  "https://cayman-seemed-mountains-switches.trycloudflare.com/api/auth/callback"
+  "https://tuesday-bowling-oh-annotation.trycloudflare.com/auth/callback",
+  "https://tuesday-bowling-oh-annotation.trycloudflare.com/auth/shopify/callback",
+  "https://tuesday-bowling-oh-annotation.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

@@ -1,818 +1,477 @@
-// Import necessary components and libraries from Shopify Polaris UI framework
 import {
   Card,
   TextField,
-  Select,
-  Button,
-  Icon,
-  Page,
   Text,
-  Box,
-  Grid,
-  Autocomplete,
+  Page,
+  Layout,
+  LegacyCard,
+  Button,
   Modal,
-  Listbox,
   Checkbox,
+  Banner,
 } from "@shopify/polaris";
-
-// Import custom icons for the application
-import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
-
-// Import React hooks and utilities
-import { useCallback, useMemo, useState } from "react";
-
-// Import authentication and API utility functions from shopify.server
+import { useState, createContext, useContext } from "react";
 import { authenticate } from "../shopify.server";
+import { useLoaderData, useFetcher, json } from "@remix-run/react";
+import prisma from "../db.server";
 
-// Import Remix Run hooks and utilities for handling server-side actions and data fetching
-import {
-  Form,
-  json,
-  useActionData,
-  useFetcher,
-  useLoaderData,
-} from "@remix-run/react";
+// Create a context to share data between components
+export const UpsellContext = createContext({
+  upsellData: {
+    conditions: {
+      selectedProducts: [],
+      selectedCollections: [],
+    },
+    upsellProducts: ["", "", ""],
+  },
+  setUpsellData: () => {},
+});
 
-// Loader function to fetch shop data from Shopify API
+// Loader function to fetch initial data
 export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request);
-
   try {
-    // Query the Shopify GraphQL API to get the shop ID
+    const { admin } = await authenticate.admin(request);
     const response = await admin.graphql(`
-      query{
-        shop{
+      query {
+        shop {
           id
+        }
+        products(first: 10) {
+          edges {
+            node {
+              id
+              title
+            }
+          }
+        }
+        collections(first: 10) {
+          edges {
+            node {
+              id
+              handle
+            }
+          }
         }
       }
     `);
-    const shop = await response.json();
-
-    // Return the shop ID as part of the loader data
-    return { id: shop.data.shop.id };
-  } catch (error) {
-    // Handle errors by returning an error message
-    return { message: "owner not found", error: error };
-  }
-}
-
-// Action function to handle form submissions and update Shopify metafields
-export async function action({ request }) {
-  const { admin } = await authenticate.admin(request);
-
-  // Extract form data submitted via POST request
-  const formData = await request.formData();
-  console.log("formData->", formData);
-
-  // Parse individual form fields
-  const shopId = formData.get("id");
-  const customizeName = formData.get("customizeName");
-  const paymentMethod = formData.get("paymentMethod");
-
-  // Extract all conditions dynamically from the submitted form data
-  const conditionTypes = formData.getAll("conditionType");
-  const greaterSmaller = formData.getAll("greaterSmaller");
-  const cartTotals = formData.get("cartTotal");
-  const selectedProducts = formData.getAll("selectedProducts");
-  const countries = formData.get("country");
-
-  // Initialize arrays for different types of conditions
-  const cartTotalConditions = [];
-  const productConditions = [];
-  const shippingCountryConditions = [];
-
-  // Categorize conditions based on their type
-  for (let i = 0; i < conditionTypes.length; i++) {
-    const conditionType = conditionTypes[i];
-    const greaterOrSmall = greaterSmaller[i];
-    const amount = Number(cartTotals) || 0;
-    const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
-    const country = countries;
-
-    // Assign conditions to respective categories
-    switch (conditionType) {
-      case "cart_total":
-        cartTotalConditions.push({
-          greaterOrSmall,
-          amount,
-        });
-        break;
-      case "product":
-        productConditions.push({
-          greaterOrSmall,
-          products,
-        });
-        break;
-      case "shipping_country":
-        shippingCountryConditions.push({
-          greaterOrSmall,
-          country,
-        });
-        break;
-      default:
-        console.warn(`Unknown condition type: ${conditionType}`);
-        break;
-    }
-  }
-
-  // Construct the configuration object with categorized conditions
-  const config = JSON.stringify({
-    shopId: shopId,
-    customizeName: customizeName,
-    paymentMethod: paymentMethod,
-    conditions: {
-      cartTotal: cartTotalConditions,
-      products: productConditions,
-      shippingCountry: shippingCountryConditions,
-    },
-  });
-
-  const configJson = {
-    shopId: shopId,
-    customizeName: customizeName,
-    paymentMethod: paymentMethod,
-    conditions: {
-      cartTotal: cartTotalConditions,
-      products: productConditions,
-      shippingCountry: shippingCountryConditions,
-    },
-  };
-
-  console.log("configJson:", configJson);
-  console.log("condition:", configJson.conditions);
-
-  try {
-    // Send a GraphQL mutation to update Shopify metafields with the configuration
-    const response = await admin.graphql(
-      `#graphql
-      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields {
-            key
-            namespace
-            value
-            createdAt
-            updatedAt
-          }
-          userErrors {
-            field
-            message
-            code
-          }
-        }
-      }`,
-      {
-        variables: {
-          metafields: [
-            {
-              key: "hide_payment",
-              namespace: "cart",
-              ownerId: shopId,
-              type: "json",
-              value: config,
-            },
-          ],
-        },
-      }
-    );
-
     const data = await response.json();
-
-    // Return the response data along with the configuration object
-    return json(data);
+    if (!data || !data.data) {
+      throw new Error("Failed to fetch data from Shopify API.");
+    }
+    return {
+      products: data.data.products,
+      collections: data.data.collections,
+      shopId: data.data.shop.id,
+    };
   } catch (error) {
-    // Handle errors by returning an error response
-    return json({ error: error.message }, { status: 500 });
+    console.error("Loader error:", error.message);
+    return json(
+      { error: "An error occurred while loading data.", success: false },
+      { status: 500 },
+    );
   }
 }
 
-// Main component rendering the page
-export default function CustomizationSection() {
-  const { id } = useLoaderData(); // Fetch shop ID from loader data
-  const dataa = useActionData(); // Fetch action data after form submission
+// Action function to handle form submissions
+export async function action({ request }) {
+  const formData = await request.formData();
+  const action = formData.get("action");
+  const shopId = formData.get("shopId");
 
-  console.log("data", dataa);
+  console.log("shopId", shopId);
 
-  return (
-    <Page
-      backAction={{ content: "Settings", url: "#" }} // Back button navigation
-      title="Hide Payment Method" // Page title
-    >
-      <Body id={id} /> {/* Render the main form body */}
-    </Page>
-  );
-}
-
-// Component responsible for rendering the form fields and interactions
-export function Body({ id }) {
-  const [parentValue, setParentValue] = useState(""); // Parent value state
-  const [customizeName, setCustomizeName] = useState("No name.."); // Customization name state
-  const handleChildValue = (childValue) => {
-    setParentValue(childValue); // Handle child value change
-  };
-
-  // Modal logic for selecting products
-  const [modalActive, setModalActive] = useState(false);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
-
-  // Predefined list of products for selection
-  const products = useMemo(
-    () => [
-      {
-        id: "gid://shopify/ProductVariant/46322014617839",
-        title: "The Compare at Price Snowboard",
-      },
-      // Additional product entries can be added here
-    ],
-    []
-  );
-
-  const toggleModal = useCallback(() => {
-    setModalActive((active) => !active); // Toggle modal visibility
-  }, []);
-
-  const handleSelectProduct = useCallback((id) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    ); // Add or remove selected products
-  }, []);
-
-  const handleConfirmSelection = useCallback(() => {
-    if (currentConditionIndex !== null) {
-      setConditions((prevConditions) =>
-        prevConditions.map((c, i) =>
-          i === currentConditionIndex
-            ? { ...c, selectedProducts: selectedProducts }
-            : c
-        )
-      );
-    }
-    toggleModal(); // Confirm product selection and close modal
-  }, [currentConditionIndex, selectedProducts, toggleModal]);
-
-  const selectedProductTitles = products
-    .filter((product) => selectedProducts.includes(product.id))
-    .map((product) => product.title)
-    .join(", "); // Display selected product titles
-
-  // State to manage the list of conditions
-  const [conditions, setConditions] = useState([
-    {
-      discountType: "cart_total",
-      greaterOrSmall: "greater_than",
-      amount: 0,
-      selectedProducts: [],
-      country: "in",
-    },
-  ]);
-
-  // Function to add a new condition
-  const handleAddCondition = () => {
-    const newDiscountType = "cart_total"; // Default new condition type
-    if (
-      conditions.some((condition) => condition.discountType === newDiscountType)
-    ) {
-      alert("This condition type already exists."); // Prevent duplicate condition types
-      return;
-    }
-    setConditions((prevConditions) => [
-      ...prevConditions,
-      {
-        discountType: newDiscountType,
-        greaterOrSmall: "greater_than",
-        amount: 0,
-        selectedProducts: [],
-        country: "in",
-      },
-    ]);
-  };
-
-  // Function to remove a condition
-  const handleRemoveCondition = (index) => {
-    setConditions((prevConditions) =>
-      prevConditions.filter((_, i) => i !== index)
-    );
-  };
-
-  // Function to handle changes in condition fields
-  const handleConditionChange = (index, field, value) => {
-    setConditions((prevConditions) =>
-      prevConditions.map((c, i) =>
-        i === index ? { ...c, [field]: value } : c
-      )
-    );
-  };
-
-  const [cartAmount, setCartAmount] = useState(0); // Cart amount state
-
-  // Function to open modal and set current condition index
-  const openModalForCondition = (index) => {
-    setCurrentConditionIndex(index);
-    setSelectedProducts(conditions[index].selectedProducts);
-    toggleModal();
-  };
-
-  // Validation function
-  const fetcher = useFetcher();
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    // Validate customization name
-    if (!customizeName || customizeName.trim() === "") {
-      newErrors.customizeName = "Customization name is required";
-    } else if (customizeName === "No name..") {
-      newErrors.customizeName = "Please enter a valid name";
-    }
-
-    // Validate payment method
-    if (!parentValue || parentValue.trim() === "") {
-      newErrors.paymentMethod = "Payment method is required";
-    }
-
-    // Validate conditions
-    if (conditions.length === 0) {
-      newErrors.conditions = "At least one condition is required";
-    } else {
-      conditions.forEach((condition, index) => {
-        if (condition.discountType === "cart_total" && !cartAmount) {
-          newErrors[`cartAmount`] = "Cart amount is required";
-        }
-        if (
-          condition.discountType === "product" &&
-          condition.selectedProducts.length === 0
-        ) {
-          newErrors[`products`] = "At least one product must be selected";
-        }
-        if (
-          condition.discountType === "shipping_country" &&
-          !condition.country
-        ) {
-          newErrors[`country`] = "Country is required";
-        }
-      });
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setIsSubmitting(true);
-
-    if (!validateForm()) {
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Prepare form data
-    const formData = new FormData();
-    formData.append("id", id);
-    formData.append("customizeName", customizeName);
-    formData.append("paymentMethod", parentValue);
-
-    // Add conditions
-    conditions.forEach((condition, index) => {
-      formData.append(`conditionType`, condition.discountType);
-      formData.append(`greaterSmaller`, condition.greaterOrSmall);
-      if (condition.discountType === "cart_total") {
-        formData.append(`cartTotal`, cartAmount);
-      } else if (condition.discountType === "product") {
-        formData.append(
-          `selectedProducts`,
-          condition.selectedProducts.join(",")
-        );
-      } else if (condition.discountType === "shipping_country") {
-        formData.append(`country`, condition.country);
-      }
-    });
-
+  if (action === "saveUpsellSettings") {
     try {
-      await fetcher.submit(formData, {
-        method: "POST",
-        action: ".", // Replace with actual route
+      const settings = {
+        selectedProducts: JSON.parse(formData.get("selectedProducts")),
+        selectedCollections: JSON.parse(formData.get("selectedCollections")),
+        upsellProducts: JSON.parse(formData.get("upsellProducts")),
+      };
+
+      console.log("Saving settings:", settings);
+
+      // Check if a record with the given shopId exists
+      const existingRecord = await prisma.upsellsettings.findUnique({
+        where: { shopId: shopId },
       });
 
-      // Handle successful submission
-      if (fetcher.data?.error) {
-        throw new Error(fetcher.data.error);
+      let dbSettings;
+
+      if (existingRecord) {
+        // Update the existing record
+        dbSettings = await prisma.upsellsettings.update({
+          where: { shopId: shopId }, // Changed from id: shopId to shopId: shopId
+          data: {
+            selectedProducts: settings.selectedProducts,
+            selectedCollections: settings.selectedCollections,
+            upsellProducts: settings.upsellProducts,
+          },
+        });
+      } else {
+        // Create a new record
+        dbSettings = await prisma.upsellsettings.create({
+          data: {
+            shopId: shopId,
+            selectedProducts: settings.selectedProducts,
+            selectedCollections: settings.selectedCollections,
+            upsellProducts: settings.upsellProducts,
+          },
+        });
       }
 
-      // Reset form or show success message
-      if (fetcher.state === "idle" && !fetcher.data?.error) {
-        // Optional: Reset form here
-        // setCustomizeName("");
-        // setParentValue("");
-        // setConditions([...]);
-      }
+      console.log("Database record saved:", dbSettings);
+
+      return json({
+        success: true,
+        data: {
+          database: dbSettings,
+        },
+      });
     } catch (error) {
-      console.error("Submission error:", error);
-      setErrors({
-        ...errors,
-        form: "Failed to save. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error saving settings:", error);
+      return json(
+        {
+          success: false,
+          error: error.message,
+        },
+        { status: 500 },
+      );
     }
-  };
+  }
+}
+
+// Helper function for safe JSON parsing
+function safeParseJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+// Main component
+export default function MainCreatUpsell() {
+  const [upsellData, setUpsellData] = useState({
+    conditions: {
+      selectedProducts: [],
+      selectedCollections: [],
+    },
+    upsellProducts: ["", "", ""],
+  });
+  const { shopId, products, collections } = useLoaderData();
 
   return (
-    <Grid>
-      <Grid.Cell columnSpan={{ md: 12, lg: 8, xl: 8 }}>
-        <Card
-          style={{
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid #E5E7EB",
-          }}
-        >
-          <Form method="POST" onSubmit={handleSubmit}>
-            <input type="hidden" name="id" value={id} />
-
-            <div className="formdetails">
-              {/* Customization Name */}
-              <div>
-                <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Customization Name
-                </label>
-                <TextField
-                  placeholder="Example: Hide Cash on Delivery (COD) For Large Orders"
-                  style={{ width: "100%" }}
-                  name="customizeName"
-                  value={customizeName}
-                  onChange={(e) => {
-                    setCustomizeName(e);
-                    if (errors.customizeName) {
-                      setErrors((prev) => ({
-                        ...prev,
-                        customizeName: undefined,
-                      }));
-                    }
-                  }}
-                  error={errors.customizeName}
-                />
-                <p
-                  style={{
-                    marginTop: "5px",
-                    fontSize: "12px",
-                    color: "#6B7280",
-                  }}
-                >
-                  This is not visible to the customer
-                </p>
-              </div>
-
-              {/* Select Payment Method */}
-              <div style={{ marginTop: "20px" }}>
-                <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Select Payment Method
-                </label>
-                <AutocompleteExample
-                  onValueChange={(value) => {
-                    handleChildValue(value);
-                    if (errors.paymentMethod) {
-                      setErrors((prev) => ({
-                        ...prev,
-                        paymentMethod: undefined,
-                      }));
-                    }
-                  }}
-                />
-                {errors.paymentMethod && (
-                  <div
-                    style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
-                  >
-                    {errors.paymentMethod}
-                  </div>
-                )}
-                <input type="hidden" name="paymentMethod" value={parentValue} />
-                <p
-                  style={{
-                    marginTop: "5px",
-                    fontSize: "12px",
-                    color: "#6B7280",
-                  }}
-                >
-                  Don't see your payment method? You can type it manually and
-                  press Enter to add it to the list.
-                </p>
-              </div>
-
-              {/* Condition Builder */}
-              <div style={{ marginTop: "20px" }}>
-                {errors.conditions && (
-                  <div
-                    style={{
-                      color: "red",
-                      fontSize: "12px",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    {errors.conditions}
-                  </div>
-                )}
-                {conditions.map((condition, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: "flex",
-                      alignItems: "self-start",
-                      gap: "10px",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    {/* Dropdown 1 */}
-                    <div className="" style={{ flexGrow: 1 }}>
-                      <Select
-                        options={[
-                          { label: "Cart Total", value: "cart_total" },
-                          { label: "Product", value: "product" },
-                          {
-                            label: "Shipping Country",
-                            value: "shipping_country",
-                          },
-                        ]}
-                        placeholder="Select a field"
-                        style={{ flex: 1 }}
-                        value={condition.discountType}
-                        onChange={(value) =>
-                          handleConditionChange(index, "discountType", value)
-                        }
-                        name={`conditionType`}
-                      />
-                    </div>
-
-                    {/* Condition-specific fields */}
-                    {condition.discountType === "cart_total" && (
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <Select
-                          options={[
-                            { label: "is greater than", value: "greater_than" },
-                            { label: "is less than", value: "less_than" },
-                          ]}
-                          placeholder="Select a condition"
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <TextField
-                          placeholder="100"
-                          type="number"
-                          value={cartAmount}
-                          onChange={(value) => {
-                            setCartAmount(value);
-                            if (errors[`cartAmount`]) {
-                              setErrors((prev) => ({
-                                ...prev,
-                                [`cartAmount`]: undefined,
-                              }));
-                            }
-                          }}
-                          style={{ flex: 1 }}
-                          name="cartTotal"
-                          error={errors[`cartAmount`]}
-                        />
-                      </div>
-                    )}
-
-                    {condition.discountType === "product" && (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Select
-                          options={[{ label: "is", value: "is" }]}
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <input
-                          type="hidden"
-                          label="Selected Products"
-                          value={condition.selectedProducts.join(", ")}
-                          name={`selectedProducts`}
-                        />
-                        <Button
-                          onClick={() => openModalForCondition(index)}
-                          disabled={isSubmitting}
-                        >
-                          Select Products
-                        </Button>
-                        {errors[`products`] && (
-                          <div style={{ color: "red", fontSize: "12px" }}>
-                            {errors[`products`]}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {condition.discountType === "shipping_country" && (
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <Select
-                          options={[{ label: "is", value: "is" }]}
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <Select
-                          options={[
-                            { label: "IN", value: "in" },
-                            { label: "CN", value: "cn" },
-                          ]}
-                          style={{ flex: 1 }}
-                          value={condition.country}
-                          onChange={(value) => {
-                            handleConditionChange(index, "country", value);
-                            if (errors[`country`]) {
-                              setErrors((prev) => ({
-                                ...prev,
-                                [`country`]: undefined,
-                              }));
-                            }
-                          }}
-                          name={`country`}
-                          error={errors[`country`]}
-                        />
-                      </div>
-                    )}
-
-                    {/* Trash Icon */}
-                    <Button
-                      onClick={() => handleRemoveCondition(index)}
-                      disabled={isSubmitting}
-                    >
-                      <Icon source={DeleteIcon} color="critical" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add Condition Button */}
-              <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onClick={handleAddCondition}
-                  disabled={isSubmitting}
-                >
-                  +Add condition
-                </Button>
-              </div>
-
-              {/* Submit Button */}
-              <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button
-                  submit
-                  variant="primary"
-                  fullWidth
-                  loading={isSubmitting}
-                >
-                  Submit
-                </Button>
-              </div>
-            </div>
-          </Form>
-
-          {/* Product Model */}
-          <Modal
-            open={modalActive}
-            onClose={toggleModal}
-            title="Select Products"
-            primaryAction={{
-              content: "Confirm",
-              onAction: handleConfirmSelection,
-            }}
-            secondaryActions={{
-              content: "Cancel",
-              onAction: toggleModal,
-            }}
-          >
-            <Modal.Section>
-              <Listbox>
-                {products.map((product) => (
-                  <Listbox.Option
-                    key={product.id}
-                    value={product.id}
-                    selected={selectedProducts.includes(product.id)}
-                    onClick={() => handleSelectProduct(product.id)}
-                  >
-                    <Checkbox
-                      label={product.title}
-                      checked={selectedProducts.includes(product.id)}
-                      onChange={() => handleSelectProduct(product.id)}
-                    />
-                  </Listbox.Option>
-                ))}
-              </Listbox>
-            </Modal.Section>
-          </Modal>
-        </Card>
-      </Grid.Cell>
-      <Grid.Cell columnSpan={{ md: 12, lg: 4, xl: 4 }}>
-        <Card roundedAbove="sm">
-          <Text as="h2" variant="headingSm">
-            Online store dashboard
-          </Text>
-          <Box paddingBlockStart="200">
-            <Text as="p" variant="bodyMd">
-              View a summary of your online store’s performance.
-            </Text>
-          </Box>
-        </Card>
-      </Grid.Cell>
-    </Grid>
+    <UpsellContext.Provider value={{ upsellData, setUpsellData }}>
+      <Page title="Create Upsell">
+        <Layout>
+          <Layout.Section>
+            <Banner title="Note:" onDismiss={() => {}}>
+              <p>
+                After selecting the product you want to upsell, make sure to
+                finish setting up your upsells by adding our upsell extension in
+                the checkout editor. Please contact us if you need assistance.
+              </p>
+            </Banner>
+            <CreateUpsell />
+            <ConditionToDisplayUpsellSection
+              products={products}
+              collections={collections}
+            />
+            <SelectProductForUpsell shopId={shopId} products={products} />
+          </Layout.Section>
+          <Layout.Section variant="oneThird">
+            <LegacyCard title="Tags" sectioned>
+              <p>Add tags to your order.</p>
+            </LegacyCard>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    </UpsellContext.Provider>
   );
 }
 
-// Custom autocomplete component
-export function AutocompleteExample({ onValueChange }) {
-  const deselectedOptions = useMemo(
-    () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
-    []
+// Step #1: Name Your Upsell
+export function CreateUpsell() {
+  return (
+    <Card>
+      <Text as="h3" variant="headingMd">
+        Step #1: Name Your Upsell
+      </Text>
+      <div style={{ height: "6px" }}></div>
+      <p style={{ fontWeight: "bold", marginTop: "10px", marginBottom: "5px" }}>
+        Upsell Name
+      </p>
+      <TextField
+        placeholder="Example: Upsell our best product"
+        style={{ width: "100%" }}
+      />
+      <p style={{ marginTop: "5px", fontSize: "12px", color: "#6B7280" }}>
+        This is not visible to the customer
+      </p>
+    </Card>
   );
+}
 
-  const [selectedOptions, setSelectedOptions] = useState([]);
-  const [inputValue, setInputValue] = useState("");
-  const [options, setOptions] = useState(deselectedOptions);
+// Step #2: Condition To Display Upsell
+export function ConditionToDisplayUpsellSection({ products, collections }) {
+  const fetcher = useFetcher();
+  const { upsellData, setUpsellData } = useContext(UpsellContext);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
-  const updateText = useCallback(
-    (value) => {
-      setInputValue(value);
-      if (value === "") {
-        setOptions(deselectedOptions);
-        return;
-      }
-      const filterRegex = new RegExp(value, "i");
-      const resultOptions = deselectedOptions.filter((option) =>
-        option.label.match(filterRegex)
-      );
-      setOptions(resultOptions);
-    },
-    [deselectedOptions]
-  );
+  const handleSelection = (type, id) => {
+    setUpsellData((prev) => ({
+      ...prev,
+      conditions: {
+        ...prev.conditions,
+        [type === "product" ? "selectedProducts" : "selectedCollections"]:
+          prev.conditions[
+            type === "product" ? "selectedProducts" : "selectedCollections"
+          ].includes(id)
+            ? prev.conditions[
+                type === "product" ? "selectedProducts" : "selectedCollections"
+              ].filter((item) => item !== id)
+            : [
+                ...prev.conditions[
+                  type === "product"
+                    ? "selectedProducts"
+                    : "selectedCollections"
+                ],
+                id,
+              ],
+      },
+    }));
+  };
 
-  const updateSelection = useCallback(
-    (selected) => {
-      const selectedValue = selected.map((selectedItem) => {
-        const matchedOption = options.find((option) => {
-          return option.value.match(selectedItem);
-        });
-        return matchedOption && matchedOption.label;
-      });
-      setSelectedOptions(selected);
-      setInputValue(selectedValue[0] || "");
-      onValueChange(selectedValue[0] || "");
-    },
-    [options, onValueChange]
-  );
+  const toggleModal = (type, isOpen) => {
+    if (type === "product") setModalOpen(isOpen);
+    if (type === "collection") setCollectionModalOpen(isOpen);
+  };
 
-  const textField = (
-    <Autocomplete.TextField
-      onChange={updateText}
-      value={inputValue}
-      prefix={<Icon source={SearchIcon} tone="base" />}
-      placeholder="Search"
-      autoComplete="off"
-    />
+  const renderModal = (type, isOpen, items, selected, onClose) => (
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={`Add ${type === "product" ? "Product" : "Collection"}`}
+      primaryAction={{
+        content: "Add",
+        disabled: selected.length === 0,
+        onAction: onClose,
+      }}
+      secondaryActions={[
+        {
+          content: "Cancel",
+          onAction: onClose,
+        },
+      ]}
+    >
+      <Modal.Section>
+        <TextField
+          placeholder={`Search ${type}s`}
+          style={{ marginBottom: "10px" }}
+        />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {items?.edges?.map((item) => (
+            <Checkbox
+              key={item.node.id}
+              label={type === "product" ? item.node.title : item.node.handle}
+              checked={selected.includes(item.node.id)}
+              onChange={() => handleSelection(type, item.node.id)}
+            />
+          ))}
+        </div>
+      </Modal.Section>
+    </Modal>
   );
 
   return (
-    <div>
-      <Autocomplete
-        options={options}
-        selected={selectedOptions}
-        onSelect={updateSelection}
-        textField={textField}
-      />
-    </div>
+    <Card
+      style={{
+        padding: "20px",
+        borderRadius: "8px",
+        border: "1px solid #E5E7EB",
+      }}
+    >
+      <Text as="h3" variant="headingMd">
+        Step #2: Condition To Display Upsell
+      </Text>
+      <Text style={{ marginTop: "5px", fontSize: "14px", color: "#6B7280" }}>
+        This will be used as the trigger for displaying the upsell
+      </Text>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: "16px",
+          marginTop: "20px",
+        }}
+      >
+        <Card>
+          <Text fontWeight="bold">All Products</Text>
+          <Button
+            plain
+            fullWidth
+            onClick={() => console.log("All Products selected")}
+          >
+            Select
+          </Button>
+        </Card>
+        <Card>
+          <Text fontWeight="bold">Based on product in cart</Text>
+          <Button plain fullWidth onClick={() => toggleModal("product", true)}>
+            Select Parent Product
+          </Button>
+        </Card>
+        <Card>
+          <Text fontWeight="bold">Based on product collection in cart</Text>
+          <Button
+            plain
+            fullWidth
+            onClick={() => toggleModal("collection", true)}
+          >
+            Select Parent Collection
+          </Button>
+        </Card>
+      </div>
+      {renderModal(
+        "product",
+        modalOpen,
+        products,
+        upsellData.conditions.selectedProducts,
+        () => toggleModal("product", false),
+      )}
+      {renderModal(
+        "collection",
+        collectionModalOpen,
+        collections,
+        upsellData.conditions.selectedCollections,
+        () => toggleModal("collection", false),
+      )}
+    </Card>
+  );
+}
+
+// Step #3: Select Products to Offer at Checkout
+export function SelectProductForUpsell({ products, shopId }) {
+  const fetcher = useFetcher();
+  const { upsellData, setUpsellData } = useContext(UpsellContext);
+  const [modals, setModals] = useState([false, false, false]);
+
+  const toggleModal = (index, isOpen) => {
+    setModals((prev) => prev.map((open, i) => (i === index ? isOpen : open)));
+  };
+
+  const handleProductSelection = (index, productId) => {
+    setUpsellData((prev) => ({
+      ...prev,
+      upsellProducts: prev.upsellProducts.map((id, i) =>
+        i === index ? productId : id,
+      ),
+    }));
+    toggleModal(index, false);
+  };
+
+  const saveAllSettings = () => {
+    fetcher.submit(
+      {
+        action: "saveUpsellSettings",
+        selectedProducts: JSON.stringify(
+          upsellData.conditions.selectedProducts,
+        ),
+        selectedCollections: JSON.stringify(
+          upsellData.conditions.selectedCollections,
+        ),
+        upsellProducts: JSON.stringify(upsellData.upsellProducts),
+        shopId: shopId,
+      },
+      { method: "POST" },
+    );
+  };
+
+  const renderModal = (index) => (
+    <Modal
+      open={modals[index]}
+      onClose={() => toggleModal(index, false)}
+      title={`Select Product ${index + 1}`}
+      primaryAction={{
+        content: "Add",
+        disabled: !upsellData.upsellProducts[index],
+        onAction: () => toggleModal(index, false),
+      }}
+      secondaryActions={[
+        {
+          content: "Cancel",
+          onAction: () => toggleModal(index, false),
+        },
+      ]}
+    >
+      <Modal.Section>
+        <TextField
+          placeholder="Search products"
+          style={{ marginBottom: "10px" }}
+        />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {products?.edges?.map((product) => (
+            <Checkbox
+              key={product.node.id}
+              label={product.node.title}
+              checked={upsellData.upsellProducts[index] === product.node.id}
+              onChange={() => handleProductSelection(index, product.node.id)}
+            />
+          ))}
+        </div>
+      </Modal.Section>
+    </Modal>
+  );
+
+  return (
+    <Card
+      style={{
+        padding: "20px",
+        borderRadius: "8px",
+        border: "1px solid #E5E7EB",
+      }}
+    >
+      <Text as="h3" variant="headingMd">
+        Step #3: Select Products to Offer at Checkout
+      </Text>
+      <Text style={{ marginTop: "5px", fontSize: "14px", color: "#6B7280" }}>
+        These products will be offered at checkout as upsells if they are not
+        already in the cart
+      </Text>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: "16px",
+          marginTop: "20px",
+        }}
+      >
+        {["Product 1", "Product 2", "Product 3"].map((label, index) => (
+          <Card key={index}>
+            <Text fontWeight="bold">{label}</Text>
+            <hr style={{ border: "none", height: "0px" }} />
+            <Button plain fullWidth onClick={() => toggleModal(index, true)}>
+              Select Product
+            </Button>
+          </Card>
+        ))}
+      </div>
+      <div style={{ marginTop: "20px" }}>
+        <Button onClick={saveAllSettings} primary>
+          Save All Settings
+        </Button>
+      </div>
+      {modals.map((_, index) => renderModal(index))}
+      {fetcher.state === "submitting" && (
+        <Banner status="info">Saving all settings...</Banner>
+      )}
+      {fetcher.state === "idle" && fetcher.data?.success && (
+        <Banner status="success">All settings saved successfully!</Banner>
+      )}
+      {fetcher.state === "idle" && fetcher.data?.error && (
+        <Banner status="critical">Error: {fetcher.data.error}</Banner>
+      )}
+    </Card>
   );
 }
