@@ -33,10 +33,12 @@ model Session {
 
 model UpsellSettings {
   id                  Int      @id @default(autoincrement())
-  shopId              String   @unique // Ensure this field is unique
+  shopId              String   // Remove @unique
+  upsellName          String   @unique // Add @unique here
   selectedProducts    Json
   selectedCollections Json
   upsellProducts      Json
+  selectionType       String   @default("specific") // Add this line
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

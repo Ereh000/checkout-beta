@@ -24,39 +24,22 @@ function Extension() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        // Fetch metafield
-        const { data: metafieldData } = await query(
-          `query {
-            shop {
-              metafield(key: "upsell_app", namespace: "upsell_settings") {
-                value
-              }
-            }
-          }`
-        );
-
-        console.log('metafieldData', metafieldData)
-
-        const settings = metafieldData.shop.metafield
-          ? JSON.parse(metafieldData.shop.metafield.value)
-          : { upsellProducts: [] };
-
-        const upsellProductIds = settings.upsellProducts;
-
-        // Fetch products
+        // Query to fetch first 3 products from the store
         const productsQuery = `
           query {
-            nodes(ids: ${JSON.stringify(upsellProductIds)}) {
-              ... on Product {
-                id
-                title
-                featuredImage {
-                  url
-                }
-                priceRange {
-                  minVariantPrice {
-                    amount
-                    currencyCode
+            products(first: 3) {
+              edges {
+                node {
+                  id
+                  title
+                  featuredImage {
+                    url
+                  }
+                  priceRange {
+                    minVariantPrice {
+                      amount
+                      currencyCode
+                    }
                   }
                 }
               }
@@ -64,16 +47,16 @@ function Extension() {
           }
         `;
 
-        const { data: productsData } = await query(productsQuery);
+        const { data } = await query(productsQuery);
 
-        const formattedProducts = productsData.nodes.map((product) => ({
-          id: product.id,
-          title: product.title,
+        const formattedProducts = data.products.edges.map(({ node }) => ({
+          id: node.id,
+          title: node.title,
           price: new Intl.NumberFormat("en-IN", {
             style: "currency",
-            currency: product.priceRange.minVariantPrice.currencyCode,
-          }).format(product.priceRange.minVariantPrice.amount),
-          image: product.featuredImage?.url,
+            currency: node.priceRange.minVariantPrice.currencyCode,
+          }).format(node.priceRange.minVariantPrice.amount),
+          image: node.featuredImage?.url,
         }));
 
         setProducts(formattedProducts);

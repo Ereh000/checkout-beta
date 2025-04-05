@@ -18,13 +18,15 @@ import prisma from "../db.server";
 // Create a context to share data between components
 export const UpsellContext = createContext({
   upsellData: {
+    upsellName: "",
     conditions: {
       selectedProducts: [],
       selectedCollections: [],
+      selectionType: "", // Add this line - can be "all" or "specific"
     },
     upsellProducts: ["", "", ""],
   },
-  setUpsellData: () => {},
+  setUpsellData: () => { },
 });
 
 // Loader function to fetch initial data
@@ -55,13 +57,26 @@ export async function loader({ request }) {
       }
     `);
     const data = await response.json();
-    if (!data || !data.data) {
-      throw new Error("Failed to fetch data from Shopify API.");
-    }
+
+    // Fetch existing upsells for this shop
+    const existingUpsells = await prisma.upsellSettings.findMany({
+      where: {
+        shopId: data.data.shop.id
+      },
+      select: {
+        upsellName: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
     return {
       products: data.data.products,
       collections: data.data.collections,
       shopId: data.data.shop.id,
+      existingUpsells: existingUpsells
     };
   } catch (error) {
     console.error("Loader error:", error.message);
@@ -78,48 +93,41 @@ export async function action({ request }) {
   const action = formData.get("action");
   const shopId = formData.get("shopId");
 
-  console.log("shopId", shopId);
-
   if (action === "saveUpsellSettings") {
     try {
       const settings = {
+        upsellName: formData.get("upsellName"),
         selectedProducts: JSON.parse(formData.get("selectedProducts")),
         selectedCollections: JSON.parse(formData.get("selectedCollections")),
         upsellProducts: JSON.parse(formData.get("upsellProducts")),
+        selectionType: formData.get("selectionType") || "specific",
       };
 
-      console.log("Saving settings:", settings);
-
-      // Check if a record with the given shopId exists
-      const existingRecord = await prisma.upsellsettings.findUnique({
-        where: { shopId: shopId },
-      });
-
-      let dbSettings;
-
-      if (existingRecord) {
-        // Update the existing record
-        dbSettings = await prisma.upsellsettings.update({
-          where: { shopId: shopId }, // Changed from id: shopId to shopId: shopId
-          data: {
-            selectedProducts: settings.selectedProducts,
-            selectedCollections: settings.selectedCollections,
-            upsellProducts: settings.upsellProducts,
-          },
-        });
-      } else {
-        // Create a new record
-        dbSettings = await prisma.upsellsettings.create({
-          data: {
-            shopId: shopId,
-            selectedProducts: settings.selectedProducts,
-            selectedCollections: settings.selectedCollections,
-            upsellProducts: settings.upsellProducts,
-          },
-        });
+      // Validate upsell name
+      if (!settings.upsellName) {
+        throw new Error("Upsell name is required");
       }
 
-      console.log("Database record saved:", dbSettings);
+      let dbSettings = await prisma.upsellSettings.upsert({
+        where: {
+          upsellName: settings.upsellName // Change from shopId to upsellName
+        },
+        update: {
+          shopId: shopId,
+          selectedProducts: settings.selectedProducts,
+          selectedCollections: settings.selectedCollections,
+          upsellProducts: settings.upsellProducts,
+          selectionType: settings.selectionType,
+        },
+        create: {
+          shopId: shopId,
+          upsellName: settings.upsellName,
+          selectedProducts: settings.selectedProducts,
+          selectedCollections: settings.selectedCollections,
+          upsellProducts: settings.upsellProducts,
+          selectionType: settings.selectionType,
+        }
+      });
 
       return json({
         success: true,
@@ -140,21 +148,14 @@ export async function action({ request }) {
   }
 }
 
-// Helper function for safe JSON parsing
-function safeParseJson(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
 // Main component
 export default function MainCreatUpsell() {
   const [upsellData, setUpsellData] = useState({
+    upsellName: "",
     conditions: {
       selectedProducts: [],
       selectedCollections: [],
+      selectionType: "", // Add this line
     },
     upsellProducts: ["", "", ""],
   });
@@ -165,7 +166,7 @@ export default function MainCreatUpsell() {
       <Page title="Create Upsell">
         <Layout>
           <Layout.Section>
-            <Banner title="Note:" onDismiss={() => {}}>
+            <Banner title="Note:" onDismiss={() => { }}>
               <p>
                 After selecting the product you want to upsell, make sure to
                 finish setting up your upsells by adding our upsell extension in
@@ -192,6 +193,15 @@ export default function MainCreatUpsell() {
 
 // Step #1: Name Your Upsell
 export function CreateUpsell() {
+  const { upsellData, setUpsellData } = useContext(UpsellContext);
+
+  const handleNameChange = (value) => {
+    setUpsellData((prev) => ({
+      ...prev,
+      upsellName: value,
+    }));
+  };
+
   return (
     <Card>
       <Text as="h3" variant="headingMd">
@@ -203,6 +213,8 @@ export function CreateUpsell() {
       </p>
       <TextField
         placeholder="Example: Upsell our best product"
+        value={upsellData.upsellName}
+        onChange={handleNameChange}
         style={{ width: "100%" }}
       />
       <p style={{ marginTop: "5px", fontSize: "12px", color: "#6B7280" }}>
@@ -219,6 +231,8 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
+  console.log('upsellData:', upsellData)
+
   const handleSelection = (type, id) => {
     setUpsellData((prev) => ({
       ...prev,
@@ -229,16 +243,16 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
             type === "product" ? "selectedProducts" : "selectedCollections"
           ].includes(id)
             ? prev.conditions[
-                type === "product" ? "selectedProducts" : "selectedCollections"
-              ].filter((item) => item !== id)
+              type === "product" ? "selectedProducts" : "selectedCollections"
+            ].filter((item) => item !== id)
             : [
-                ...prev.conditions[
-                  type === "product"
-                    ? "selectedProducts"
-                    : "selectedCollections"
-                ],
-                id,
+              ...prev.conditions[
+              type === "product"
+                ? "selectedProducts"
+                : "selectedCollections"
               ],
+              id,
+            ],
       },
     }));
   };
@@ -246,6 +260,18 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
   const toggleModal = (type, isOpen) => {
     if (type === "product") setModalOpen(isOpen);
     if (type === "collection") setCollectionModalOpen(isOpen);
+  };
+
+  const getSelectedProductTitles = () => {
+    return products?.edges
+      ?.filter(product => upsellData.conditions.selectedProducts.includes(product.node.id))
+      .map(product => product.node.title);
+  };
+
+  const getSelectedCollectionTitles = () => {
+    return collections?.edges
+      ?.filter(collection => upsellData.conditions.selectedCollections.includes(collection.node.id))
+      .map(collection => collection.node.handle);
   };
 
   const renderModal = (type, isOpen, items, selected, onClose) => (
@@ -284,6 +310,19 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
     </Modal>
   );
 
+  const handleConditionSelect = (type) => {
+    setUpsellData((prev) => ({
+      ...prev,
+      conditions: {
+        ...prev.conditions,
+        selectionType: type === 'all' ? 'all' : 'specific',
+        // Clear other selections when switching conditions
+        selectedProducts: type === 'product' ? prev.conditions.selectedProducts : [],
+        selectedCollections: type === 'collection' ? prev.conditions.selectedCollections : [],
+      },
+    }));
+  };
+
   return (
     <Card
       style={{
@@ -308,28 +347,76 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
       >
         <Card>
           <Text fontWeight="bold">All Products</Text>
-          <Button
-            plain
-            fullWidth
-            onClick={() => console.log("All Products selected")}
-          >
-            Select
-          </Button>
+          <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+            {upsellData.conditions.selectionType === "all" && (
+              <Text color="subdued" as="span">
+                All products will trigger this upsell<br />
+              </Text>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button
+              plain
+              fullWidth
+              onClick={() => handleConditionSelect('all')}
+            >
+              {upsellData.conditions.selectionType === "all" ? "Selected" : "Select"}
+            </Button>
+            {upsellData.conditions.selectionType === "all" && (
+              <Button
+                plain
+                destructive
+                onClick={() => handleConditionSelect('none')}
+              >
+                ✕
+              </Button>
+            )}
+          </div>
         </Card>
         <Card>
           <Text fontWeight="bold">Based on product in cart</Text>
-          <Button plain fullWidth onClick={() => toggleModal("product", true)}>
-            Select Parent Product
+          <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+            {getSelectedProductTitles()?.map(title => (
+              <Text key={title} color="subdued" as="span">
+                {title}<br />
+              </Text>
+            ))}
+          </div>
+          <Button
+            plain
+            fullWidth
+            onClick={() => {
+              handleConditionSelect('product');
+              toggleModal("product", true);
+            }}
+          >
+            {upsellData.conditions.selectedProducts.length > 0
+              ? "Edit Products"
+              : "Select Parent Product"
+            }
           </Button>
         </Card>
         <Card>
           <Text fontWeight="bold">Based on product collection in cart</Text>
+          <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+            {getSelectedCollectionTitles()?.map(handle => (
+              <Text key={handle} color="subdued" as="span">
+                {handle}<br />
+              </Text>
+            ))}
+          </div>
           <Button
             plain
             fullWidth
-            onClick={() => toggleModal("collection", true)}
+            onClick={() => {
+              handleConditionSelect('collection');
+              toggleModal("collection", true);
+            }}
           >
-            Select Parent Collection
+            {upsellData.conditions.selectedCollections.length > 0
+              ? "Edit Collections"
+              : "Select Parent Collection"
+            }
           </Button>
         </Card>
       </div>
@@ -375,6 +462,7 @@ export function SelectProductForUpsell({ products, shopId }) {
     fetcher.submit(
       {
         action: "saveUpsellSettings",
+        upsellName: upsellData.upsellName,  // Add this line
         selectedProducts: JSON.stringify(
           upsellData.conditions.selectedProducts,
         ),
@@ -382,10 +470,17 @@ export function SelectProductForUpsell({ products, shopId }) {
           upsellData.conditions.selectedCollections,
         ),
         upsellProducts: JSON.stringify(upsellData.upsellProducts),
+        selectionType: upsellData.conditions.selectionType, // Add this line
         shopId: shopId,
       },
       { method: "POST" },
     );
+  };
+
+  console.log("saveAllSettings", upsellData);
+
+  const getProductTitle = (productId) => {
+    return products?.edges?.find(product => product.node.id === productId)?.node.title || '';
   };
 
   const renderModal = (index) => (
@@ -450,9 +545,15 @@ export function SelectProductForUpsell({ products, shopId }) {
         {["Product 1", "Product 2", "Product 3"].map((label, index) => (
           <Card key={index}>
             <Text fontWeight="bold">{label}</Text>
-            <hr style={{ border: "none", height: "0px" }} />
+            <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+              {upsellData.upsellProducts[index] && (
+                <Text color="subdued" as="span">
+                  {getProductTitle(upsellData.upsellProducts[index])}<br />
+                </Text>
+              )}
+            </div>
             <Button plain fullWidth onClick={() => toggleModal(index, true)}>
-              Select Product
+              {upsellData.upsellProducts[index] ? "Change Product" : "Select Product"}
             </Button>
           </Card>
         ))}

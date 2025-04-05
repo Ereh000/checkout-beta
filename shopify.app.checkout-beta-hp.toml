@@ -1,10 +1,14 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "e3344672bc14dd27d97420f5295b0df1"
-application_url = "https://hierarchy-fit-ebony-sensitivity.trycloudflare.com"
+application_url = "https://directed-physiology-basketball-roland.trycloudflare.com"
 embedded = true
 name = "checkout-beta-hp"
 handle = "checkout-beta-hp"
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2025-01"
@@ -15,13 +19,10 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://hierarchy-fit-ebony-sensitivity.trycloudflare.com/auth/callback",
-  "https://hierarchy-fit-ebony-sensitivity.trycloudflare.com/auth/shopify/callback",
-  "https://hierarchy-fit-ebony-sensitivity.trycloudflare.com/api/auth/callback"
+  "https://directed-physiology-basketball-roland.trycloudflare.com/auth/callback",
+  "https://directed-physiology-basketball-roland.trycloudflare.com/auth/shopify/callback",
+  "https://directed-physiology-basketball-roland.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
 embedded = false
-
-[build]
-automatically_update_urls_on_dev = true

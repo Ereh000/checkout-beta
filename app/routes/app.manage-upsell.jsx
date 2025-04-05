@@ -1,24 +1,152 @@
 import React, { useState } from "react";
+import { json, useFetcher, useLoaderData } from "@remix-run/react";
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 import {
   Page,
   LegacyCard,
-  MediaCard,
-  VideoThumbnail,
-  EmptyState,
-  Button,
-  Modal,
+  IndexTable,
   Text,
+  Button,
+  ButtonGroup,
+  Toast,
+  Modal,
+  TextContainer,
+  EmptyState,
 } from "@shopify/polaris";
-import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
-import { Link } from "@remix-run/react";
 
-export default function PaymentCustomization() {
-  // State to control modal visibility
-  const [isOpen, setIsOpen] = useState(false);
+// Add loader function
+export async function loader({ request }) {
+  try {
+    const { admin } = await authenticate.admin(request);
+    const response = await admin.graphql(`
+      query {
+        shop {
+          id
+        }
+      }
+    `);
+    // const { shop } = await response.json().data;
+    const data = await response.json();
+
+    // Fetch all upsells for this shop
+    const upsells = await prisma.upsellSettings.findMany({
+      where: {
+        shopId: data.data.shop.id
+      },
+      select: {
+        id: true,
+        upsellName: true,
+        selectionType: true,
+        selectedProducts: true,
+        selectedCollections: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return { upsells };
+  } catch (error) {
+    console.error("Loader error:", error);
+    return { upsells: [] };
+  }
+}
+
+// Add action function for delete
+export async function action({ request }) {
+  const formData = await request.formData();
+  const id = formData.get("id");
+
+  try {
+    await prisma.upsellSettings.delete({
+      where: {
+        id: parseInt(id)
+      }
+    });
+    return json({ success: true });
+  } catch (error) {
+    console.error("Delete error:", error);
+    return json({ success: false, error: "Failed to delete upsell" }, { status: 500 });
+  }
+}
+
+export default function ManageUpsell() {
+  const { upsells } = useLoaderData();
+  const fetcher = useFetcher();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedUpsell, setSelectedUpsell] = useState(null);
+
+  const handleDeleteClick = (upsell) => {
+    setSelectedUpsell(upsell);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedUpsell) {
+      fetcher.submit(
+        { action: "delete", id: selectedUpsell.id },
+        { method: "POST" }
+      );
+      setDeleteModalOpen(false);
+      setSelectedUpsell(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setSelectedUpsell(null);
+  };
+
+  const getConditionType = (upsell) => {
+    if (upsell.selectedProducts && upsell.selectedProducts.length > 0) {
+      return 'Selected Products';
+    } else if (upsell.selectedCollections && upsell.selectedCollections.length > 0) {
+      return 'Selected Collections';
+    } else {
+      return 'All Products';
+    }
+  };
+
+  const rowMarkup = upsells.map(
+    (upsell, index) => (
+      <IndexTable.Row id={upsell.id} key={upsell.id} position={index}>
+        <IndexTable.Cell>
+          <Text variant="bodyMd" fontWeight="bold">
+            {upsell.upsellName}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Text variant="bodyMd">
+            {getConditionType(upsell)}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          {new Date(upsell.createdAt).toLocaleDateString()}
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <ButtonGroup>
+            <Button
+              plain
+              url={`/app/edit-upsell/${upsell.id}`}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="primary" tone="critical"
+              onClick={() => handleDeleteClick(upsell)}
+            >
+              Delete
+            </Button>
+          </ButtonGroup>
+        </IndexTable.Cell>
+      </IndexTable.Row>
+    ),
+  );
 
   return (
     <Page
-      //   backAction={{ content: "Settings", url: "#" }}
       title="Manage Upsells"
       primaryAction={
         <Button variant="primary" url="/app/create-upsell">
@@ -26,164 +154,56 @@ export default function PaymentCustomization() {
         </Button>
       }
     >
-      {/* Existing content */}
-      <MediaCard
-        title="How to use Payment Customizations"
-        primaryAction={{
-          content: "Learn more",
-          onAction: () => {},
-        }}
-        description="Thank you for using Checkout Plus. Here is an example of using payment customizations on the checkout."
-        popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
-      >
-        <VideoThumbnail
-          videoLength={80}
-          thumbnailUrl="https://burst.shopifycdn.com/photos/business-woman-smiling-in-office.jpg?width=1850"
-          onClick={() => console.log("clicked")}
-        />
-      </MediaCard>
-
-      <br />
-      <LegacyCard sectioned>
-        <EmptyState
-          heading="Manage your inventory transfers"
-          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+      <LegacyCard>
+        <IndexTable
+          resourceName={{ singular: 'Upsell', plural: 'Upsells' }}
+          itemCount={upsells.length}
+          headings={[
+            { title: 'Upsell Name' },
+            { title: 'Condition Type' },
+            { title: 'Created Date' },
+            { title: 'Actions' },
+          ]}
+          selectable={false}
         >
-          <p>Track and receive your incoming inventory from suppliers.</p>
-        </EmptyState>
+          {rowMarkup}
+        </IndexTable>
       </LegacyCard>
 
-      {/* Polaris Modal */}
+      {upsells.length === 0 && (
+        <LegacyCard sectioned>
+          <EmptyState
+            heading="No upsells created yet"
+            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+          >
+            <p>Create your first upsell to start boosting your sales.</p>
+          </EmptyState>
+        </LegacyCard>
+      )}
+
       <Modal
-        open={isOpen}
-        onClose={() => setIsOpen(false)}
-        title="Select A Customization"
+        open={deleteModalOpen}
+        onClose={handleDeleteCancel}
+        title="Delete Upsell"
+        primaryAction={{
+          content: "Delete",
+          destructive: true,
+          onAction: handleDeleteConfirm,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: handleDeleteCancel,
+          },
+        ]}
       >
         <Modal.Section>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* Option 1: Hide Payment Method */}
-            <Link
-              to={"/app/hide-payment"}
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
-                }}
-              >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Hide Payment Method
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Hide payment method based on Order totals
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
-
-            {/* Option 2: Change Payment Method Name */}
-            <Link
-              to={"/app/rename-payment"}
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
-                }}
-              >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Change Name of Payment Method
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Update the name of a specific payment method
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
-
-            {/* Option 3 */}
-            <Link
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
-                }}
-              >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Reorder Payment Method
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Reorder the payment methods to suit your preferences
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
-
-            {/* Option 2 */}
-            <Link
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
-                }}
-              >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Don't see what you looking for
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Submit a feature request and we will he happy to support you
-                  business need
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
-          </div>
+          <TextContainer>
+            <p>
+              Are you sure you want to delete the upsell "{selectedUpsell?.upsellName}"?
+              This action cannot be undone.
+            </p>
+          </TextContainer>
         </Modal.Section>
       </Modal>
     </Page>
