@@ -3,7 +3,7 @@
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
 name = "checkout-beta"
 handle = "checkout-beta-1"
-application_url = "https://tuesday-bowling-oh-annotation.trycloudflare.com"
+application_url = "https://icon-brings-coal-medal.trycloudflare.com"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://tuesday-bowling-oh-annotation.trycloudflare.com/auth/callback",
-  "https://tuesday-bowling-oh-annotation.trycloudflare.com/auth/shopify/callback",
-  "https://tuesday-bowling-oh-annotation.trycloudflare.com/api/auth/callback"
+  "https://icon-brings-coal-medal.trycloudflare.com/auth/callback",
+  "https://icon-brings-coal-medal.trycloudflare.com/auth/shopify/callback",
+  "https://icon-brings-coal-medal.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

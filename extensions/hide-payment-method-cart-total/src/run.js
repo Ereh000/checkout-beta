@@ -42,7 +42,7 @@ export function run(input) {
 
   try {
     const parsed = JSON.parse(metafield.value);  // Parse metafield value
-    console.log("metafield", parsed); // Log metafield
+    // console.log("metafield", parsed); // Log metafield
 
     // Extract configuration from metafield
     const conditions = parsed.conditions || {}; // Get conditions, default {} -  Gets the conditions for payment customization from the metafield data.  If no conditions are present, it defaults to an empty object.
@@ -114,25 +114,25 @@ export function run(input) {
           EXCLUDED_COUNTRIES.includes(group.deliveryAddress.countryCode),
       );
     }
-    console.log(
-      "Conditions:",
-      "totalCondition",
-      totalCondition,
-      "productCondition",
-      productCondition,
-      "countryCondition",
-      countryCondition,
-      "MIN_CART_TOTAL",
-      MIN_CART_TOTAL,
-      "paymentMethod",
-      paymentMethod,
-    );
+    // console.log(
+    //   "Conditions:",
+    //   "totalCondition",
+    //   totalCondition,
+    //   "productCondition",
+    //   productCondition,
+    //   "countryCondition",
+    //   countryCondition,
+    //   "MIN_CART_TOTAL",
+    //   MIN_CART_TOTAL,
+    //   "paymentMethod",
+    //   paymentMethod,
+    // );
 
     const shouldHideCOD =
       totalCondition || countryCondition || productCondition; // Hide COD if any condition met
 
     if (!shouldHideCOD) {
-      console.log("No conditions met to hide the payment method.");
+      // console.log("No conditions met to hide the payment method.");
       return NO_CHANGES; // No changes if no conditions met
     }
 
@@ -155,7 +155,7 @@ export function run(input) {
       ],
     };
   } catch (error) { // Catch errors
-    console.error("Error:", error); // Log error
+    // console.error("Error:", error); // Log error
     return NO_CHANGES; // Return no changes on error
   }
 }

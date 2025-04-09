@@ -1,5 +1,3 @@
-// new backup.jsx not working
-
 import React, { useState, useEffect } from "react";
 import {
   BlockStack,
@@ -10,6 +8,7 @@ import {
   Text,
   View,
   useApi,
+  // useAppMetafields,
 } from "@shopify/ui-extensions-react/checkout";
 
 export default reactExtension("purchase.checkout.block.render", () => (
@@ -21,42 +20,41 @@ function Extension() {
   const [loading, setLoading] = useState(true);
   const { query } = useApi();
 
+
+  // const metaData = useAppMetafields();
+  // console.log("firstMetaData", metaData);
+
   useEffect(() => {
     async function fetchProducts() {
       try {
-        // Query to fetch first 3 products from the store
-        const productsQuery = `
-          query {
+        const { data } = await query(
+          `query {
             products(first: 3) {
-              edges {
-                node {
-                  id
-                  title
-                  featuredImage {
-                    url
-                  }
-                  priceRange {
-                    minVariantPrice {
-                      amount
-                      currencyCode
-                    }
+              nodes {
+                id
+                title
+                featuredImage {
+                  url
+                }
+                priceRange {
+                  minVariantPrice {
+                    amount
+                    currencyCode
                   }
                 }
               }
             }
-          }
-        `;
+          }`,
+        );
 
-        const { data } = await query(productsQuery);
-
-        const formattedProducts = data.products.edges.map(({ node }) => ({
-          id: node.id,
-          title: node.title,
+        const formattedProducts = data.products.nodes.map((product) => ({
+          id: product.id,
+          title: product.title,
           price: new Intl.NumberFormat("en-IN", {
             style: "currency",
-            currency: node.priceRange.minVariantPrice.currencyCode,
-          }).format(node.priceRange.minVariantPrice.amount),
-          image: node.featuredImage?.url,
+            currency: product.priceRange.minVariantPrice.currencyCode,
+          }).format(product.priceRange.minVariantPrice.amount),
+          image: product.featuredImage?.url,
         }));
 
         setProducts(formattedProducts);

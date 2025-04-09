@@ -1,0 +1,115 @@
+# Learn more about configuring your checkout UI extension:
+# https://shopify.dev/api/checkout-extensions/checkout/configuration
+
+# The version of APIs your extension will receive. Learn more:
+# https://shopify.dev/docs/api/usage/versioning
+api_version = "2025-01"
+
+[[extensions]]
+name = "testional-block"
+handle = "testional-block"
+type = "ui_extension"
+
+
+# Controls where in Shopify your extension will be injected,
+# and the file that contains your extension’s source code. Learn more:
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
+
+[[extensions.targeting]]
+module = "./src/Checkout.jsx"
+target = "purchase.checkout.block.render"
+
+[extensions.capabilities]
+# Gives your extension access to directly query Shopify’s storefront API.
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#api-access
+api_access = true
+
+# Gives your extension access to make external network calls, using the
+# JavaScript `fetch()` API. Learn more:
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#network-access
+# network_access = true
+
+# Loads metafields on checkout resources, including the cart,
+# products, customers, and more. Learn more:
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#metafields
+
+# [[extensions.metafields]]
+# namespace = "my_namespace"
+# key = "my_key"
+# [[extensions.metafields]]
+# namespace = "my_namespace"
+# key = "my_other_key"
+
+# Defines settings that will be collected from merchants installing
+# your extension. Learn more:
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#settings-definition
+
+# [extensions.settings]
+# [[extensions.settings.fields]]
+# key = "banner_title"
+# type = "single_line_text_field"
+# name = "Banner title"
+# description = "Enter a title for the banner"
+
+
+[settings]
+  [[settings.fields]]
+  key = "layout"
+  type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
+  name = "Layout Arrangement"
+  description = "Choose the layout arrangement for the block."
+  default = "vertical"
+
+  [[settings.fields]]
+  key = "title"
+  type = "single_line_text_field"
+  name = "Title"
+  description = "Enter the title for the section."
+
+  [[settings.fields]]
+  key = "imageSize"
+  type = "number_integer" # Changed from "number" to "number_integer"
+  name = "Image Size"
+  description = "Set the size of the image."
+  default = 100
+  min = 1
+  max = 1000
+
+  [[settings.fields]]
+  key = "textAlignment"
+  type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
+  name = "Section Text Alignment"
+  description = "Choose the text alignment for the section."
+  default = "center"
+
+  [[settings.fields]]
+  key = "textSize"
+  type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
+  name = "Section Text Size"
+  description = "Choose the text size for the section."
+  default = "large"
+
+  [[settings.fields]]
+  key = "titleTextSize"
+  type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
+  name = "Section Title Text Size"
+  description = "Choose the text size for the section title."
+  default = "none"
+
+  [[settings.fields]]
+  key = "imageUrl"
+  type = "single_line_text_field"
+  name = "Image #1 URL"
+  description = "Provide the URL for the first image."
+
+  [[settings.fields]]
+  key = "sectionText"
+  type = "multi_line_text_field" # Changed from "textarea" to "multi_line_text_field"
+  name = "Section #1 Text"
+  description = "Enter the text for the first section."
+
+  [[settings.fields]]
+  key = "sectionTitle"
+  type = "single_line_text_field"
+  name = "Section #1 Title"
+  description = "Enter the title for the first section."
