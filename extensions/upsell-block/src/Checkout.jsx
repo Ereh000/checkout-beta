@@ -8,7 +8,9 @@ import {
   Text,
   View,
   useApi,
-  // useAppMetafields,
+  useMetafield,
+  useAppMetafields,
+  useCartLines,
 } from "@shopify/ui-extensions-react/checkout";
 
 export default reactExtension("purchase.checkout.block.render", () => (
@@ -18,55 +20,132 @@ export default reactExtension("purchase.checkout.block.render", () => (
 function Extension() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showUpsell, setShowUpsell] = useState(false);
   const { query } = useApi();
+  const cartLines = useCartLines();
 
+  console.log("cartLines:", cartLines);
 
-  // const metaData = useAppMetafields();
-  // console.log("firstMetaData", metaData);
+  // Fetch the metafield data
+  const metafields = useAppMetafields();
+  console.log("metafields:", metafields);
+  const metafieldData = metafields.find(
+    (metafield) => metafield.target.type == "shop" && metafield.metafield.namespace === "settings" && metafield.metafield.key === "upsell"
+  )?.metafield.value;
+  const metafieldDataProduct = metafields.find(
+    (metafield) => metafield.target.type == "product" && metafield.metafield.namespace === "settings" && metafield.metafield.key === "upsell"
+  )?.metafield.value;
+
+  console.log("metafieldData:", metafieldData);
 
   useEffect(() => {
-    async function fetchProducts() {
+    async function checkAndFetchProducts() {
+      if (!metafieldData) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data } = await query(
-          `query {
-            products(first: 3) {
-              nodes {
-                id
-                title
-                featuredImage {
-                  url
-                }
-                priceRange {
-                  minVariantPrice {
-                    amount
-                    currencyCode
+        // Parse the metafield JSON data
+        const upsellSettings = typeof metafieldData === 'string'
+          ? JSON.parse(metafieldData)
+          : metafieldData;
+        // 
+        const upsellProductsSettings = typeof metafieldDataProduct === 'string'
+          ? JSON.parse(metafieldDataProduct)
+          : metafieldDataProduct;
+
+        console.log("upsellSettings:", upsellSettings);
+        console.log("upsellProductsSettings:", upsellProductsSettings);
+        console.log("upsellSettings-> selectedProducts:", upsellSettings.selectedProducts);
+        console.log("upsellProductsSettings-> selectedProducts:", upsellProductsSettings.selectedProducts);
+
+        // Check if we should show upsells based on cart contents and settings
+        let shouldShowUpsell = false;
+
+        console.log("shouldShowUpsell", shouldShowUpsell);
+
+        // If selection type is 'all', always show upsells
+        if (upsellSettings.selectionType === 'all') {
+          console.log("upsellSettings.selectionType", upsellSettings.selectionType);
+          shouldShowUpsell = true;
+        } else {
+          // Check if any cart product is in the selectedProducts list
+          const cartProductIds = cartLines.map(line => line.merchandise.product.id);
+          console.log("cartProductIds:", cartProductIds)
+          shouldShowUpsell = cartProductIds.some(id =>
+            upsellProductsSettings.selectedProducts.includes(id)
+          );
+          // setShowUpsell(true);
+          console.log("shouldShowUpsell", shouldShowUpsell);
+        }
+
+        setShowUpsell(shouldShowUpsell);
+
+        console.log("showUpsell", showUpsell);
+
+        if (shouldShowUpsell) {
+          setShowUpsell(true);
+          console.log("yes show upsell")
+          // Filter out empty product IDs
+          const validUpsellProductIds = upsellSettings.upsellProducts.filter(id => id && id.trim() !== "");
+          console.log("validUpsellProductIds:", validUpsellProductIds);
+
+          if (validUpsellProductIds.length === 0) {
+            setLoading(false);
+            return;
+          }
+
+          // Create the query with product IDs
+          const productIdsQuery = validUpsellProductIds.map(id => `"${id}"`).join(',');
+          console.log("productIdsQuery:", productIdsQuery);
+
+          const { data } = await query(
+            `query {
+              nodes(ids: [${productIdsQuery}]) {
+                ... on Product {
+                  id
+                  title
+                  featuredImage {
+                    url
+                  }
+                  priceRange {
+                    minVariantPrice {
+                      amount
+                      currencyCode
+                    }
                   }
                 }
               }
-            }
-          }`,
-        );
+            }`
+          );
 
-        const formattedProducts = data.products.nodes.map((product) => ({
-          id: product.id,
-          title: product.title,
-          price: new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: product.priceRange.minVariantPrice.currencyCode,
-          }).format(product.priceRange.minVariantPrice.amount),
-          image: product.featuredImage?.url,
-        }));
+          console.log("data:", data);
 
-        setProducts(formattedProducts);
+          const formattedProducts = data.nodes.map((product) => ({
+            id: product.id,
+            title: product.title,
+            price: new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: product.priceRange.minVariantPrice.currencyCode,
+            }).format(product.priceRange.minVariantPrice.amount),
+            image: product.featuredImage?.url,
+          }));
+
+          console.log("formattedProducts:", formattedProducts);
+
+          setProducts(formattedProducts);
+        }
+
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error processing upsell data:", error);
         setLoading(false);
       }
     }
 
-    fetchProducts();
-  }, [query]);
+    checkAndFetchProducts();
+  }, [query, metafieldData, cartLines]);
 
   if (loading) {
     return (
@@ -76,8 +155,15 @@ function Extension() {
     );
   }
 
+  if (!showUpsell || products.length === 0) {
+    return null; // Don't show anything if no upsells should be displayed
+  }
+
+  console.log("products:", products);
+
   return (
     <BlockStack spacing="loose">
+      <Text size="medium" emphasis="bold">You may also like</Text>
       {products.map((product) => (
         <View
           key={product.id}

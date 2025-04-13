@@ -1,13 +1,10 @@
 import {
   reactExtension,
-  Banner,
-  BlockStack,
-  Image,
-  InlineLayout,
   Text,
-  useApi,
-  useTranslate,
   useSettings,
+  PaymentIcon,
+  InlineStack,
+  BlockSpacer,
 } from "@shopify/ui-extensions-react/checkout";
 
 export default reactExtension("purchase.checkout.block.render", () => (
@@ -15,36 +12,35 @@ export default reactExtension("purchase.checkout.block.render", () => (
 ));
 
 function Extension() {
-  const translate = useTranslate();
-  const { banner_title, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6 } = useSettings();
+  const { 
+    banner_title, 
+    image_1_icon, 
+    image_2_icon, 
+    image_3_icon, 
+    image_4_icon, 
+    image_5_icon
+  } = useSettings();
 
-  const images1 = [
-    { url: image_url_1, alt: "Trust Badge 1" },
-    { url: image_url_2, alt: "Trust Badge 2" },
-    { url: image_url_3, alt: "Trust Badge 3" },
-    { url: image_url_4, alt: "Trust Badge 4" },
-    { url: image_url_5, alt: "Trust Badge 5" },
-    { url: image_url_6, alt: "Trust Badge 6" },
-  ].filter(img => img.url);
-
-  const images2 = [
-    { url: image_url_5, alt: "Trust Badge 5" },
-    { url: image_url_6, alt: "Trust Badge 6" },
-  ].filter(img => img.url);
+  // Create an array of payment icons from settings
+  const paymentIcons = [
+    image_1_icon,
+    image_2_icon,
+    image_3_icon,
+    image_4_icon,
+    image_5_icon
+  ].filter(icon => icon && icon !== "none");
 
   return (
-    <BlockStack spacing="tight">
-      <Text size="medium" emphasis="bold">{banner_title || "Try Our Trust Badges!"}</Text>
-      <InlineLayout spacing="base" columns={['20%']} alignment="center">
-        {images1.map((image, index) => (
-          <Image key={index} source={image.url} alt={image.alt} />
+    <>
+      <InlineStack inlineAlignment="center" blockAlignment="center">
+        <Text size="medium" emphasis="bold">{banner_title || "Try Our Payment Icons"}</Text>
+      </InlineStack>
+      <BlockSpacer spacing="loose" />
+      <InlineStack inlineAlignment="center" blockAlignment="center">
+        {paymentIcons.map((iconName, index) => (
+          <PaymentIcon key={index} name={iconName} />
         ))}
-      </InlineLayout>
-      <InlineLayout spacing="base" columns={['20%']} alignment="center">
-        {images2.map((image, index) => (
-          <Image key={index} source={image.url} alt={image.alt} />
-        ))}
-      </InlineLayout>
-    </BlockStack>
+      </InlineStack>
+    </>
   );
 }

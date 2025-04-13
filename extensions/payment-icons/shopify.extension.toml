@@ -52,37 +52,31 @@ api_access = true
     description = "Enter a title for the banner"
 
     [[extensions.settings.fields]]
-    key = "image_url_1"
+    key = "image_1_icon"
     type = "single_line_text_field"
-    name = "Image #1 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
+    name = "Image #1 Icon"
+    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
 
     [[extensions.settings.fields]]
-    key = "image_url_2"
+    key = "image_2_icon"
     type = "single_line_text_field"
-    name = "Image #2 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
+    name = "Image #2 Icon"
+    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
 
     [[extensions.settings.fields]]
-    key = "image_url_3"
+    key = "image_3_icon"
     type = "single_line_text_field"
-    name = "Image #3 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
+    name = "Image #3 Icon"
+    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
 
     [[extensions.settings.fields]]
-    key = "image_url_4"
+    key = "image_4_icon"
     type = "single_line_text_field"
-    name = "Image #4 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
+    name = "Image #4 Icon"
+    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
 
     [[extensions.settings.fields]]
-    key = "image_url_5"
+    key = "image_5_icon"
     type = "single_line_text_field"
-    name = "Image #5 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
-
-    [[extensions.settings.fields]]
-    key = "image_url_6"
-    type = "single_line_text_field"
-    name = "Image #6 Custom Url"
-    description = "Enter an image url to load a custom image instead of a preloaded option"
+    name = "Image #5 Icon"
+    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"

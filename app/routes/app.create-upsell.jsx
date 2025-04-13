@@ -26,7 +26,7 @@ export const UpsellContext = createContext({
     },
     upsellProducts: ["", "", ""],
   },
-  setUpsellData: () => {},
+  setUpsellData: () => { },
 });
 
 // Loader function to fetch initial data
@@ -89,7 +89,6 @@ export async function loader({ request }) {
 
 // Action function to handle form submissions
 export async function action({ request }) {
-
   const { admin } = await authenticate.admin(request);
 
   const formData = await request.formData();
@@ -106,6 +105,8 @@ export async function action({ request }) {
         selectionType: formData.get("selectionType") || "specific",
       };
 
+      console.log("settings:", settings);
+
       // Validate upsell name
       if (!settings.upsellName) {
         throw new Error("Upsell name is required");
@@ -113,7 +114,7 @@ export async function action({ request }) {
 
       let dbSettings = await prisma.upsellSettings.upsert({
         where: {
-          upsellName: settings.upsellName, // Change from shopId to upsellName
+          upsellName: settings.upsellName,
         },
         update: {
           shopId: shopId,
@@ -139,53 +140,120 @@ export async function action({ request }) {
         selectedCollections: JSON.parse(formData.get("selectedCollections")),
         upsellProducts: JSON.parse(formData.get("upsellProducts")),
         selectionType: formData.get("selectionType") || "specific",
+      };
+
+      let metafieldResult = null;
+      // Determine where to save the metafield
+      let ownerId = shopId;
+      // If specific products are selected and selectionType is not "all",
+      // we could save to each product's metafield instead of shop
+      // This is just a placeholder - you'd need to implement the logic to save to each product
+      if (settings.selectedProducts.length > 0 && settings.selectionType !== "all") {
+        // For now, we'll still save to the shop, but you could modify this
+        // to save to each product if needed
+        console.log("Selected products, but selectionType is not 'all'")
+        // console.log(settings.selectedProducts[0], settings.selectedProducts[1], settings.selectedProducts[2])
+        console.log(JSON.stringify(settings.selectedProducts))
+        ownerId = shopId;
+
+        const productIds = settings.selectedProducts; // Replace with your product IDs
+
+        const metafieldData = {
+          key: "upsell",
+          namespace: "settings",
+          type: "json",
+          value: JSON.stringify(metaData) // Replace with your JSON data
+        };
+
+        for (const productId of productIds) {
+          const metafieldResponse = await admin.graphql(
+            `#graphql
+            mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+              metafieldsSet(metafields: $metafields) {
+                metafields {
+                  key
+                  namespace
+                  value
+                  createdAt
+                  updatedAt
+                }
+                userErrors {
+                  field
+                  message
+                  code
+                }
+              }
+            }`,
+            {
+              variables: {
+                metafields: [
+                  {
+                    ...metafieldData,
+                    ownerId: productId
+                  }
+                ]
+              }
+            }
+          );
+          console.log(`Metafield added to product ${productId}:`);
+        }
+
+        return json({
+          success: true,
+        });
       }
 
-      // Save settings to the shop metafield
-      const metafieldResponse = await admin.graphql(
-        `#graphql
-        mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            metafields {
-              key
-              namespace
-              value
-              createdAt
-              updatedAt
+      if (settings.selectedProducts.length == 0 && settings.selectionType == "all") {
+        // Save settings to the metafield
+        const metafieldResponse = await admin.graphql(
+          `#graphql
+          mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              metafields {
+                key
+                namespace
+                value
+                createdAt
+                updatedAt
+              }
+              userErrors {
+                field
+                message
+                code
+              }
             }
-            userErrors {
-              field
-              message
-              code
-            }
-          }
-        }`,
-        {
-          variables: {
-            metafields: [
-              {
-                key: "upsell",
-                namespace: "settings",
-                ownerId: shopId,
-                type: "json",
-                value: JSON.stringify(metaData),
-              },
-            ],
+          }`,
+          {
+            variables: {
+              metafields: [
+                {
+                  key: "upsell",
+                  namespace: "settings",
+                  ownerId: ownerId,
+                  type: "json",
+                  value: JSON.stringify(metaData),
+                },
+              ],
+            },
           },
-        },
-      );
+        );
 
-      const metafieldResult = await metafieldResponse.json();
+        metafieldResult = await metafieldResponse.json();
 
-      // console.log("Metafield result:", metafieldResult);
+        // Check for errors in the metafield update
+        if (metafieldResult.data?.metafieldsSet?.userErrors?.length > 0) {
+          console.error("Metafield errors:", metafieldResult.data.metafieldsSet.userErrors);
+          throw new Error(metafieldResult.data.metafieldsSet.userErrors[0].message);
+        }
 
-      return json({
-        success: true,
-        data: {
-          database: dbSettings,
-          metafieldResult: metafieldResult,
-        },
-      });
+        return json({
+          success: true,
+          data: {
+            database: dbSettings,
+            metafieldResult: metafieldResult,
+          },
+        });
+      }
     } catch (error) {
       console.error("Error saving settings:", error);
       return json(
@@ -210,6 +278,7 @@ export default function MainCreatUpsell() {
     },
     upsellProducts: ["", "", ""],
   });
+  // console.log("upsellData:", upsellData);
   const { shopId, products, collections } = useLoaderData();
 
   return (
@@ -220,7 +289,7 @@ export default function MainCreatUpsell() {
       >
         <Layout>
           <Layout.Section>
-            <Banner title="Note:" onDismiss={() => {}}>
+            <Banner title="Note:" onDismiss={() => { }}>
               <p>
                 After selecting the product you want to upsell, make sure to
                 finish setting up your upsells by adding our upsell extension in
@@ -297,16 +366,16 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
             type === "product" ? "selectedProducts" : "selectedCollections"
           ].includes(id)
             ? prev.conditions[
-                type === "product" ? "selectedProducts" : "selectedCollections"
-              ].filter((item) => item !== id)
+              type === "product" ? "selectedProducts" : "selectedCollections"
+            ].filter((item) => item !== id)
             : [
-                ...prev.conditions[
-                  type === "product"
-                    ? "selectedProducts"
-                    : "selectedCollections"
-                ],
-                id,
+              ...prev.conditions[
+              type === "product"
+                ? "selectedProducts"
+                : "selectedCollections"
               ],
+              id,
+            ],
       },
     }));
   };

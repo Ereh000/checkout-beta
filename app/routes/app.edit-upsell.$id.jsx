@@ -89,11 +89,104 @@ export async function loader({ request, params }) {
 
 // Action function to handle form submissions
 export async function action({ request, params }) {
+    const { admin } = await authenticate.admin(request);
+
     const formData = await request.formData();
     const action = formData.get("action");
     const shopId = formData.get("shopId");
     const { id } = params;
 
+    // Handle delete metafields action
+    if (action === "deleteUpsellMetafields") {
+        try {
+            const selectedProducts = JSON.parse(formData.get("selectedProducts"));
+
+            if (selectedProducts.length === 0) {
+                // Delete shop metafield if no products are selected
+                const metafieldResponse = await admin.graphql(
+                    `#graphql  
+                    mutation MetafieldDelete($input: MetafieldDeleteInput!) {
+                        metafieldDelete(input: $input) {
+                            deletedId
+                            userErrors {
+                                field
+                                message
+                            }
+                        }
+                    }`,
+                    {
+                        variables: {
+                            input: {
+                                ownerId: shopId,
+                                key: "upsell",
+                                namespace: "settings"
+                            }
+                        }
+                    }
+                );
+
+                const result = await metafieldResponse.json();
+
+                if (result.data?.metafieldDelete?.userErrors?.length > 0) {
+                    throw new Error(result.data.metafieldDelete.userErrors[0].message);
+                }
+            } else {
+                // Delete metafields from each selected product
+                for (const productId of selectedProducts) {
+                    const metafieldResponse = await admin.graphql(
+                        `#graphql
+                        mutation MetafieldsDelete($metafields: [MetafieldsDeleteInput!]!) {
+                          metafieldsDelete(metafields: $metafields) {
+                            deletedMetafields {
+                              key
+                              namespace
+                              ownerId
+                            }
+                            userErrors {
+                              field
+                              message
+                            }
+                          }
+                        }`,
+                        {
+                            variables: {
+                                metafields: [
+                                    {
+                                        key: "upsell",
+                                        namespace: "settings",
+                                        ownerId: productId // Replace with the actual product ID
+                                    }
+                                ]
+                            }
+                        }
+                    );
+
+                    const result = await metafieldResponse.json();
+
+                    if (result.data?.metafieldDelete?.userErrors?.length > 0) {
+                        console.log(`Error deleting metafield for product ${productId}:`, result.data.metafieldDelete.userErrors);
+                    }
+                }
+            }
+
+            return json({
+                success: true,
+                deleted: true,
+                message: "Metafields deleted successfully"
+            });
+        } catch (error) {
+            console.error("Error deleting metafields:", error);
+            return json(
+                {
+                    success: false,
+                    error: error.message,
+                },
+                { status: 500 },
+            );
+        }
+    }
+
+    // Existing saveUpsellSettings action
     if (action === "saveUpsellSettings") {
         try {
             const settings = {
@@ -103,6 +196,8 @@ export async function action({ request, params }) {
                 upsellProducts: JSON.parse(formData.get("upsellProducts")),
                 selectionType: formData.get("selectionType") || "specific",
             };
+
+            console.log("settings:", settings)
 
             // Validate upsell name
             if (!settings.upsellName) {
@@ -123,12 +218,128 @@ export async function action({ request, params }) {
                 }
             });
 
-            return json({
-                success: true,
-                data: {
-                    database: dbSettings,
-                },
-            });
+
+            const metaData = {
+                shopId: shopId,
+                upsellName: formData.get("upsellName"),
+                selectedProducts: JSON.parse(formData.get("selectedProducts")),
+                selectedCollections: JSON.parse(formData.get("selectedCollections")),
+                upsellProducts: JSON.parse(formData.get("upsellProducts")),
+                selectionType: formData.get("selectionType") || "specific",
+            }
+
+            let metafieldResult = null;
+            // Determine where to save the metafield
+            let ownerId = shopId;
+            // If specific products are selected and selectionType is not "all",
+            // we could save to each product's metafield instead of shop
+            // This is just a placeholder - you'd need to implement the logic to save to each product
+            if (settings.selectedProducts.length > 0 && settings.selectionType !== "all") {
+                // For now, we'll still save to the shop, but you could modify this
+                // to save to each product if needed
+                console.log("Selected products, but selectionType is not 'all'")
+                // console.log(settings.selectedProducts[0], settings.selectedProducts[1], settings.selectedProducts[2])
+                console.log(JSON.stringify(settings.selectedProducts))
+                ownerId = shopId;
+
+                const productIds = settings.selectedProducts; // Replace with your product IDs
+
+                const metafieldData = {
+                    key: "upsell",
+                    namespace: "settings",
+                    type: "json",
+                    value: JSON.stringify(metaData) // Replace with your JSON data
+                };
+
+                for (const productId of productIds) {
+                    const metafieldResponse = await admin.graphql(
+                        `#graphql
+                  mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                    metafieldsSet(metafields: $metafields) {
+                      metafields {
+                        key
+                        namespace
+                        value
+                        createdAt
+                        updatedAt
+                      }
+                      userErrors {
+                        field
+                        message
+                        code
+                      }
+                    }
+                  }`,
+                        {
+                            variables: {
+                                metafields: [
+                                    {
+                                        ...metafieldData,
+                                        ownerId: productId
+                                    }
+                                ]
+                            }
+                        }
+                    );
+                    console.log(`Metafield added to product ${productId}:`);
+                }
+
+                return json({
+                    success: true,
+                });
+            }
+
+            if (settings.selectedProducts.length == 0 && settings.selectionType == "all") {
+                // Save settings to the metafield
+                const metafieldResponse = await admin.graphql(
+                    `#graphql
+                mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                  metafieldsSet(metafields: $metafields) {
+                    metafields {
+                      key
+                      namespace
+                      value
+                      createdAt
+                      updatedAt
+                    }
+                    userErrors {
+                      field
+                      message
+                      code
+                    }
+                  }
+                }`,
+                    {
+                        variables: {
+                            metafields: [
+                                {
+                                    key: "upsell",
+                                    namespace: "settings",
+                                    ownerId: ownerId,
+                                    type: "json",
+                                    value: JSON.stringify(metaData),
+                                },
+                            ],
+                        },
+                    },
+                );
+
+                metafieldResult = await metafieldResponse.json();
+
+                // Check for errors in the metafield update
+                if (metafieldResult.data?.metafieldsSet?.userErrors?.length > 0) {
+                    console.error("Metafield errors:", metafieldResult.data.metafieldsSet.userErrors);
+                    throw new Error(metafieldResult.data.metafieldsSet.userErrors[0].message);
+                }
+
+                return json({
+                    success: true,
+                    data: {
+                        database: dbSettings,
+                        metafieldResult: metafieldResult,
+                    },
+                });
+            }
         } catch (error) {
             // console.error("Error saving settings:", error);
             return json(
@@ -439,6 +650,7 @@ export function SelectProductForUpsell({ products, shopId }) {
     const fetcher = useFetcher();
     const { upsellData, setUpsellData } = useContext(UpsellContext);
     const [modals, setModals] = useState([false, false, false]);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const toggleModal = (index, isOpen) => {
         setModals((prev) => prev.map((open, i) => (i === index ? isOpen : open)));
@@ -458,7 +670,7 @@ export function SelectProductForUpsell({ products, shopId }) {
         fetcher.submit(
             {
                 action: "saveUpsellSettings",
-                upsellName: upsellData.upsellName,  // Add this line
+                upsellName: upsellData.upsellName,
                 selectedProducts: JSON.stringify(
                     upsellData.conditions.selectedProducts,
                 ),
@@ -466,14 +678,26 @@ export function SelectProductForUpsell({ products, shopId }) {
                     upsellData.conditions.selectedCollections,
                 ),
                 upsellProducts: JSON.stringify(upsellData.upsellProducts),
-                selectionType: upsellData.conditions.selectionType, // Add this line
+                selectionType: upsellData.conditions.selectionType,
                 shopId: shopId,
             },
             { method: "POST" },
         );
     };
 
-    // console.log("saveAllSettings", upsellData);
+    const deleteUpsellMetafields = () => {
+        setIsDeleting(true);
+        fetcher.submit(
+            {
+                action: "deleteUpsellMetafields",
+                selectedProducts: JSON.stringify(
+                    upsellData.conditions.selectedProducts,
+                ),
+                shopId: shopId,
+            },
+            { method: "POST" },
+        );
+    };
 
     const getProductTitle = (productId) => {
         return products?.edges?.find(product => product.node.id === productId)?.node.title || '';
@@ -554,17 +778,24 @@ export function SelectProductForUpsell({ products, shopId }) {
                     </Card>
                 ))}
             </div>
-            <div style={{ marginTop: "20px" }}>
+            <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
                 <Button onClick={saveAllSettings} primary>
                     Save All Settings
+                </Button>
+                <Button onClick={deleteUpsellMetafields} destructive disabled={isDeleting}>
+                    {isDeleting ? "Deleting..." : "Delete Metafields"}
                 </Button>
             </div>
             {modals.map((_, index) => renderModal(index))}
             {fetcher.state === "submitting" && (
-                <Banner status="info">Saving all settings...</Banner>
+                <Banner status="info">
+                    {isDeleting ? "Deleting metafields..." : "Saving all settings..."}
+                </Banner>
             )}
             {fetcher.state === "idle" && fetcher.data?.success && (
-                <Banner status="success">All settings saved successfully!</Banner>
+                <Banner status="success">
+                    {fetcher.data?.deleted ? "Metafields deleted successfully!" : "All settings saved successfully!"}
+                </Banner>
             )}
             {fetcher.state === "idle" && fetcher.data?.error && (
                 <Banner status="critical">Error: {fetcher.data.error}</Banner>
