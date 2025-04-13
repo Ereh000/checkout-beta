@@ -10,9 +10,9 @@ import {
     Checkbox,
     Banner,
 } from "@shopify/polaris";
-import { useState, createContext, useContext } from "react";
+import { useState, createContext, useContext, useEffect } from "react";
+import { useLoaderData, useFetcher, json, useParams, useNavigate } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { useLoaderData, useFetcher, json, useParams } from "@remix-run/react";
 import prisma from "../db.server";
 
 // Create a context to share data between components
@@ -135,28 +135,26 @@ export async function action({ request, params }) {
                 for (const productId of selectedProducts) {
                     const metafieldResponse = await admin.graphql(
                         `#graphql
-                        mutation MetafieldsDelete($metafields: [MetafieldsDeleteInput!]!) {
-                          metafieldsDelete(metafields: $metafields) {
-                            deletedMetafields {
-                              key
-                              namespace
-                              ownerId
+                        mutation MetafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {
+                            metafieldsDelete(metafields: $metafields) {
+                                deletedMetafields {
+                                key
+                                namespace
+                                ownerId
+                                }
+                                userErrors {
+                                field
+                                message
+                                }
                             }
-                            userErrors {
-                              field
-                              message
-                            }
-                          }
                         }`,
                         {
                             variables: {
-                                metafields: [
-                                    {
-                                        key: "upsell",
-                                        namespace: "settings",
-                                        ownerId: productId // Replace with the actual product ID
-                                    }
-                                ]
+                                metafields: {
+                                    ownerId: productId,
+                                    key: "upsell",
+                                    namespace: "settings"
+                                }
                             }
                         }
                     );
@@ -651,6 +649,7 @@ export function SelectProductForUpsell({ products, shopId }) {
     const { upsellData, setUpsellData } = useContext(UpsellContext);
     const [modals, setModals] = useState([false, false, false]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const navigate = useNavigate();
 
     const toggleModal = (index, isOpen) => {
         setModals((prev) => prev.map((open, i) => (i === index ? isOpen : open)));
@@ -698,6 +697,14 @@ export function SelectProductForUpsell({ products, shopId }) {
             { method: "POST" },
         );
     };
+
+    // Add useEffect to handle navigation after successful deletion
+    useEffect(() => {
+        if (fetcher.state === "idle" && fetcher.data?.success && fetcher.data?.deleted) {
+            // Navigate to manage-upsell page after successful deletion
+            navigate("/app/manage-upsell");
+        }
+    }, [fetcher.state, fetcher.data, navigate]);
 
     const getProductTitle = (productId) => {
         return products?.edges?.find(product => product.node.id === productId)?.node.title || '';
