@@ -1,3 +1,4 @@
+// createupsell.jsx
 import {
   Card,
   TextField,
@@ -38,7 +39,7 @@ export async function loader({ request }) {
         shop {
           id
         }
-        products(first: 10) {
+        products(first: 50) {
           edges {
             node {
               id
@@ -57,6 +58,14 @@ export async function loader({ request }) {
       }
     `);
     const data = await response.json();
+
+    // Check if there's already an upsell with "all" selection type
+    const existingAllTypeUpsell = await prisma.upsellSettings.findFirst({
+      where: {
+        shopId: data.data.shop.id,
+        selectionType: "all"
+      }
+    });
 
     // Fetch existing upsells for this shop
     const existingUpsells = await prisma.upsellSettings.findMany({
@@ -77,6 +86,7 @@ export async function loader({ request }) {
       collections: data.data.collections,
       shopId: data.data.shop.id,
       existingUpsells: existingUpsells,
+      existingAllTypeUpsell: !!existingAllTypeUpsell
     };
   } catch (error) {
     console.error("Loader error:", error.message);
@@ -349,10 +359,13 @@ export function CreateUpsell() {
 
 // Step #2: Condition To Display Upsell
 export function ConditionToDisplayUpsellSection({ products, collections }) {
-  const fetcher = useFetcher();
   const { upsellData, setUpsellData } = useContext(UpsellContext);
   const [modalOpen, setModalOpen] = useState(false);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+  const { existingAllTypeUpsell } = useLoaderData();
+  const allProductsDisabled = existingAllTypeUpsell;
+
+  const fetcher = useFetcher();
 
   // console.log("upsellData:", upsellData);
 
@@ -483,12 +496,19 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
                 <br />
               </Text>
             )}
+            {allProductsDisabled && (
+              <Text color="critical" as="span">
+                Another upsell is already using "All Products"
+                <br />
+              </Text>
+            )}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <Button
               plain
               fullWidth
               onClick={() => handleConditionSelect("all")}
+              disabled={allProductsDisabled}
             >
               {upsellData.conditions.selectionType === "all"
                 ? "Selected"
@@ -590,6 +610,13 @@ export function SelectProductForUpsell({ products, shopId }) {
     toggleModal(index, false);
   };
 
+  // Function to check if a product is already selected in another slot
+  const isProductSelectedElsewhere = (productId, currentIndex) => {
+    return upsellData.upsellProducts.some(
+      (id, index) => id === productId && index !== currentIndex
+    );  
+  };
+
   const saveAllSettings = () => {
     fetcher.submit(
       {
@@ -641,14 +668,25 @@ export function SelectProductForUpsell({ products, shopId }) {
           style={{ marginBottom: "10px" }}
         />
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {products?.edges?.map((product) => (
-            <Checkbox
-              key={product.node.id}
-              label={product.node.title}
-              checked={upsellData.upsellProducts[index] === product.node.id}
-              onChange={() => handleProductSelection(index, product.node.id)}
-            />
-          ))}
+          {products?.edges?.map((product) => {
+            const isSelectedElsewhere = isProductSelectedElsewhere(product.node.id, index);
+            return (
+              <Checkbox
+                key={product.node.id}
+                label={
+                  <>
+                    {product.node.title}
+                    {isSelectedElsewhere && (
+                      <Text color="critical" as="span"> (already selected in another slot)</Text>
+                    )}
+                  </>
+                }
+                checked={upsellData.upsellProducts[index] === product.node.id}
+                disabled={isSelectedElsewhere}
+                onChange={() => handleProductSelection(index, product.node.id)}
+              />
+            );
+          })}
         </div>
       </Modal.Section>
     </Modal>

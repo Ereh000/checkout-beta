@@ -46,13 +46,23 @@ export async function loader({ request, params }) {
             throw new Error("Upsell not found");
         }
 
+        // Check if there's already an upsell with "all" selection type
+        const existingAllTypeUpsell = await prisma.upsellSettings.findFirst({
+            where: {
+                selectionType: "all",
+                id: {
+                    not: parseInt(id) // Exclude current upsell
+                }
+            }
+        });
+
         // Fetch shop data and products
         const response = await admin.graphql(`
       query {
         shop {
           id
         }
-        products(first: 10) {
+        products(first: 50) {
           edges {
             node {
               id
@@ -76,7 +86,8 @@ export async function loader({ request, params }) {
             upsellData,
             products: data.data.products,
             collections: data.data.collections,
-            shopId: data.data.shop.id
+            shopId: data.data.shop.id,
+            existingAllTypeUpsell: !!existingAllTypeUpsell
         };
     } catch (error) {
         // console.error("Loader error:", error.message);
@@ -431,10 +442,13 @@ export function CreateUpsell() {
 
 // Step #2: Condition To Display Upsell
 export function ConditionToDisplayUpsellSection({ products, collections }) {
-    const fetcher = useFetcher();
     const { upsellData, setUpsellData } = useContext(UpsellContext);
     const [modalOpen, setModalOpen] = useState(false);
     const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+    const { existingAllTypeUpsell } = useLoaderData();
+    const allProductsDisabled = existingAllTypeUpsell && upsellData.conditions.selectionType !== "all";
+
+    const fetcher = useFetcher();
 
     // console.log('upsellData:', upsellData)
 
@@ -558,12 +572,18 @@ export function ConditionToDisplayUpsellSection({ products, collections }) {
                                 All products will trigger this upsell<br />
                             </Text>
                         )}
+                        {allProductsDisabled && (
+                            <Text color="critical" as="span">
+                                Another upsell is already using "All Products"<br />
+                            </Text>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <Button
                             plain
                             fullWidth
                             onClick={() => handleConditionSelect('all')}
+                            disabled={allProductsDisabled}
                         >
                             {upsellData.conditions.selectionType === "all" ? "Selected" : "Select"}
                         </Button>
@@ -665,6 +685,13 @@ export function SelectProductForUpsell({ products, shopId }) {
         toggleModal(index, false);
     };
 
+    // Function to check if a product is already selected in another slot
+    const isProductSelectedElsewhere = (productId, currentIndex) => {
+        return upsellData.upsellProducts.some(
+            (id, index) => id === productId && index !== currentIndex
+        );
+    };
+
     const saveAllSettings = () => {
         fetcher.submit(
             {
@@ -733,14 +760,25 @@ export function SelectProductForUpsell({ products, shopId }) {
                     style={{ marginBottom: "10px" }}
                 />
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                    {products?.edges?.map((product) => (
-                        <Checkbox
-                            key={product.node.id}
-                            label={product.node.title}
-                            checked={upsellData.upsellProducts[index] === product.node.id}
-                            onChange={() => handleProductSelection(index, product.node.id)}
-                        />
-                    ))}
+                    {products?.edges?.map((product) => {
+                        const isSelectedElsewhere = isProductSelectedElsewhere(product.node.id, index);
+                        return (
+                            <Checkbox
+                                key={product.node.id}
+                                label={
+                                    <>
+                                        {product.node.title}
+                                        {isSelectedElsewhere && (
+                                            <Text color="critical" as="span"> (already selected in another slot)</Text>
+                                        )}
+                                    </>
+                                }
+                                checked={upsellData.upsellProducts[index] === product.node.id}
+                                disabled={isSelectedElsewhere}
+                                onChange={() => handleProductSelection(index, product.node.id)}
+                            />
+                        );
+                    })}
                 </div>
             </Modal.Section>
         </Modal>

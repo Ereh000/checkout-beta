@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "e3344672bc14dd27d97420f5295b0df1"
-application_url = "https://directed-physiology-basketball-roland.trycloudflare.com"
+application_url = "https://somewhat-new-carrying-bg.trycloudflare.com"
 embedded = true
 name = "checkout-beta-hp"
 handle = "checkout-beta-hp"
@@ -19,9 +19,9 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://directed-physiology-basketball-roland.trycloudflare.com/auth/callback",
-  "https://directed-physiology-basketball-roland.trycloudflare.com/auth/shopify/callback",
-  "https://directed-physiology-basketball-roland.trycloudflare.com/api/auth/callback"
+  "https://somewhat-new-carrying-bg.trycloudflare.com/auth/callback",
+  "https://somewhat-new-carrying-bg.trycloudflare.com/auth/shopify/callback",
+  "https://somewhat-new-carrying-bg.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
