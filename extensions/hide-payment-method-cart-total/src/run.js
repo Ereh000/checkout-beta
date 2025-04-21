@@ -145,6 +145,7 @@ export function run(input) {
       return NO_CHANGES; // No changes if COD not found
     }
 
+
     return {
       operations: [ // Return operations
         {
@@ -154,8 +155,9 @@ export function run(input) {
         },
       ],
     };
+    
   } catch (error) { // Catch errors
-    // console.error("Error:", error); // Log error
+    console.error("Error while create Hide Payment Method"); // Log error
     return NO_CHANGES; // Return no changes on error
   }
 }

@@ -61,16 +61,7 @@ export default function Index() {
 export function PaymentAndShippingCustomizations() {
   return (
     <Card sectioned>
-      <div
-        style={
-          {
-            // padding: "20px",
-            // borderRadius: "8px",
-            // border: "1px solid #E5E7EB",
-            // background: "#fff",
-          }
-        }
-      >
+      <div>
         <h2 style={{ marginBottom: "20px", fontWeight: "bold" }}>
           Payment & Shipping Customizations
         </h2>
@@ -101,7 +92,9 @@ export function PaymentAndShippingCustomizations() {
                   </p>
                 </div>
               </div>
-              <Button primary>Manage</Button>
+              <Button variant="primary" url="/app/payment-customization">
+                Manage
+              </Button>
             </div>
           </Card>
 
@@ -131,7 +124,9 @@ export function PaymentAndShippingCustomizations() {
                   </p>
                 </div>
               </div>
-              <Button primary>Manage</Button>
+              <Button url="/app/shipping-customization" variant="primary">
+                Manage
+              </Button>
             </div>
           </Card>
 
@@ -161,7 +156,7 @@ export function PaymentAndShippingCustomizations() {
                   </p>
                 </div>
               </div>
-              <Button primary>Manage</Button>
+              <Button variant="primary">Manage</Button> 
             </div>
           </Card>
         </div>
@@ -195,7 +190,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -235,7 +230,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -277,7 +272,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -319,7 +314,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -359,7 +354,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -401,7 +396,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",
@@ -441,7 +436,7 @@ function ExtensionsSection() {
                 className="icon"
                 style={{
                   display: "flex",
-                  alignTtems: 'baseline',
+                  alignTtems: "baseline",
                   width: "3rem",
                   border: "1px solid #eee",
                   borderRadius: "8px",

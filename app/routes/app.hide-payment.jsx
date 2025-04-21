@@ -10,9 +10,9 @@ import {
   Box,
   Grid,
   Autocomplete,
-  Modal,
   Listbox,
   Checkbox,
+  Banner,
 } from "@shopify/polaris";
 
 // Import custom icons for the application
@@ -49,7 +49,10 @@ export async function loader({ request }) {
     const shop = await response.json();
 
     // Return the shop ID as part of the loader data
-    return { id: shop.data.shop.id };
+    return {
+      id: shop.data.shop.id,
+      host: session.shop, // Add host information
+    };
   } catch (error) {
     // Handle errors by returning an error message
     return { message: "owner not found", error: error };
@@ -65,7 +68,11 @@ export async function action({ request }) {
   console.log("formData->", formData);
 
   // Parse individual form fields
+  // Get the shop ID and ensure it's properly formatted
   const shopId = formData.get("id");
+  if (!shopId) {
+    return json({ error: "Shop ID is required" }, { status: 400 });
+  }
   const customizeName = formData.get("customizeName");
   const paymentMethod = formData.get("paymentMethod");
 
@@ -80,6 +87,23 @@ export async function action({ request }) {
   const cartTotalConditions = [];
   const productConditions = [];
   const shippingCountryConditions = [];
+
+  // Check for duplicate conditions
+  const uniqueConditions = new Set(conditionTypes);
+  if (uniqueConditions.size !== conditionTypes.length) {
+    return json(
+      {
+        error: "Duplicate conditions are not allowed",
+        userErrors: [
+          {
+            field: "conditions",
+            message: "Each condition type must be unique",
+          },
+        ],
+      },
+      { status: 400 },
+    );
+  }
 
   // Categorize conditions based on their type
   for (let i = 0; i < conditionTypes.length; i++) {
@@ -139,7 +163,7 @@ export async function action({ request }) {
   };
 
   console.log("configJson:", configJson);
-  console.log("condition:", configJson.conditions);
+  console.log("condition.products:", configJson.conditions.products);
 
   try {
     // Send a GraphQL mutation to update Shopify metafields with the configuration
@@ -169,15 +193,14 @@ export async function action({ request }) {
               namespace: "cart",
               ownerId: shopId,
               type: "json",
-              value: config,
+              value: JSON.stringify(configJson),
             },
           ],
         },
-      }
+      },
     );
 
     const data = await response.json();
-
     // Return the response data along with the configuration object
     return json(data);
   } catch (error) {
@@ -205,56 +228,19 @@ export default function CustomizationSection() {
 
 // Component responsible for rendering the form fields and interactions
 export function Body({ id }) {
+  const { host } = useLoaderData(); // Fetch host information from loader data
+
+  const [alertMessage, setAlertMessage] = useState(null); // Add new state for alert messages
   const [parentValue, setParentValue] = useState(""); // Parent value state
-  const [customizeName, setCustomizeName] = useState("No name.."); // Customization name state
+  const [customizeName, setCustomizeName] = useState(""); // Customization name state
   const handleChildValue = (childValue) => {
     setParentValue(childValue); // Handle child value change
   };
 
   // Modal logic for selecting products
-  const [modalActive, setModalActive] = useState(false);
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  // const [modalActive, setModalActive] = useState(false);
+  // const [selectedProducts, setSelectedProducts] = useState([]);
   const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
-
-  // Predefined list of products for selection
-  const products = useMemo(
-    () => [
-      {
-        id: "gid://shopify/ProductVariant/46322014617839",
-        title: "The Compare at Price Snowboard",
-      },
-      // Additional product entries can be added here
-    ],
-    []
-  );
-
-  const toggleModal = useCallback(() => {
-    setModalActive((active) => !active); // Toggle modal visibility
-  }, []);
-
-  const handleSelectProduct = useCallback((id) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    ); // Add or remove selected products
-  }, []);
-
-  const handleConfirmSelection = useCallback(() => {
-    if (currentConditionIndex !== null) {
-      setConditions((prevConditions) =>
-        prevConditions.map((c, i) =>
-          i === currentConditionIndex
-            ? { ...c, selectedProducts: selectedProducts }
-            : c
-        )
-      );
-    }
-    toggleModal(); // Confirm product selection and close modal
-  }, [currentConditionIndex, selectedProducts, toggleModal]);
-
-  const selectedProductTitles = products
-    .filter((product) => selectedProducts.includes(product.id))
-    .map((product) => product.title)
-    .join(", "); // Display selected product titles
 
   // State to manage the list of conditions
   const [conditions, setConditions] = useState([
@@ -267,15 +253,74 @@ export function Body({ id }) {
     },
   ]);
 
+  // Remove the static products array and modal state
+  // Add resource picker handler
+  const handleProductPicker = useCallback(
+    async (index) => {
+      const products = await window.shopify.resourcePicker({
+        type: "product",
+        action: "select",
+        multiple: true,
+        host: host,
+        selectMultiple: true,
+        initialQuery: "",
+      });
+
+      if (products) {
+        const selectedProducts = products.map((product) => ({
+          id: product.id,
+          title: product.title,
+          productType: product.productType,
+          handle: product.handle,
+        }));
+
+        setConditions((prevConditions) =>
+          prevConditions.map((c, i) =>
+            i === index
+              ? {
+                  ...c,
+                  selectedProducts: selectedProducts.map((p) => p.id),
+                  productTitles: selectedProducts.map((p) => p.title),
+                }
+              : c,
+          ),
+        );
+      }
+    },
+    [host],
+  );
+
+  const toggleModal = useCallback(() => {
+    setModalActive((active) => !active); // Toggle modal visibility
+  }, []);
+
+  const handleSelectProduct = useCallback((id) => {
+    setSelectedProducts((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    ); // Add or remove selected products
+  }, []);
+
+  // const handleConfirmSelection = useCallback(() => {
+  //   if (currentConditionIndex !== null) {
+  //     setConditions((prevConditions) =>
+  //       prevConditions.map((c, i) =>
+  //         i === currentConditionIndex
+  //           ? { ...c, selectedProducts: selectedProducts }
+  //           : c,
+  //       ),
+  //     );
+  //   }
+  //   toggleModal(); // Confirm product selection and close modal
+  // }, [currentConditionIndex, selectedProducts, toggleModal]);
+
+  // Update the selectedProductTitles calculation
+  const selectedProductTitles =
+    conditions[currentConditionIndex]?.selectedProducts || [];
+
   // Function to add a new condition
+  // Remove duplicate check from handleAddCondition
   const handleAddCondition = () => {
-    const newDiscountType = "cart_total"; // Default new condition type
-    if (
-      conditions.some((condition) => condition.discountType === newDiscountType)
-    ) {
-      alert("This condition type already exists."); // Prevent duplicate condition types
-      return;
-    }
+    const newDiscountType = "cart_total";
     setConditions((prevConditions) => [
       ...prevConditions,
       {
@@ -291,7 +336,7 @@ export function Body({ id }) {
   // Function to remove a condition
   const handleRemoveCondition = (index) => {
     setConditions((prevConditions) =>
-      prevConditions.filter((_, i) => i !== index)
+      prevConditions.filter((_, i) => i !== index),
     );
   };
 
@@ -299,8 +344,8 @@ export function Body({ id }) {
   const handleConditionChange = (index, field, value) => {
     setConditions((prevConditions) =>
       prevConditions.map((c, i) =>
-        i === index ? { ...c, [field]: value } : c
-      )
+        i === index ? { ...c, [field]: value } : c,
+      ),
     );
   };
 
@@ -319,52 +364,81 @@ export function Body({ id }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
-    const newErrors = {};
+    const errorMessages = [];
 
     // Validate customization name
     if (!customizeName || customizeName.trim() === "") {
-      newErrors.customizeName = "Customization name is required";
+      errorMessages.push("Customization name is required");
     } else if (customizeName === "No name..") {
-      newErrors.customizeName = "Please enter a valid name";
+      errorMessages.push("Please enter a valid name");
     }
 
     // Validate payment method
     if (!parentValue || parentValue.trim() === "") {
-      newErrors.paymentMethod = "Payment method is required";
+      errorMessages.push("Payment method is required");
+    }
+
+    // Check for duplicate conditions
+    const conditionTypes = conditions.map((c) => c.discountType);
+    const uniqueConditions = new Set(conditionTypes);
+    if (uniqueConditions.size !== conditionTypes.length) {
+      errorMessages.push(
+        "Duplicate conditions are not allowed. Please remove duplicate conditions.",
+      );
+    }
+
+    // Existing validation checks
+    if (!customizeName || customizeName.trim() === "") {
+      errorMessages.push("Customization name is required");
+    } else if (customizeName === "No name..") {
+      errorMessages.push("Please enter a valid name");
     }
 
     // Validate conditions
     if (conditions.length === 0) {
-      newErrors.conditions = "At least one condition is required";
+      errorMessages.push("At least one condition is required");
     } else {
-      conditions.forEach((condition, index) => {
+      conditions.forEach((condition) => {
         if (condition.discountType === "cart_total" && !cartAmount) {
-          newErrors[`cartAmount`] = "Cart amount is required";
+          errorMessages.push("Cart amount is required");
         }
         if (
           condition.discountType === "product" &&
           condition.selectedProducts.length === 0
         ) {
-          newErrors[`products`] = "At least one product must be selected";
+          errorMessages.push("At least one product must be selected");
         }
         if (
           condition.discountType === "shipping_country" &&
           !condition.country
         ) {
-          newErrors[`country`] = "Country is required";
+          errorMessages.push("Country is required");
         }
       });
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (errorMessages.length > 0) {
+      setAlertMessage({
+        status: "critical",
+        message: (
+          <ul style={{ margin: 0, paddingLeft: "20px" }}>
+            {errorMessages.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        ),
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setIsSubmitting(true);
 
+    // Use only validateForm for all validations
     if (!validateForm()) {
       setIsSubmitting(false);
       return;
@@ -385,7 +459,11 @@ export function Body({ id }) {
       } else if (condition.discountType === "product") {
         formData.append(
           `selectedProducts`,
-          condition.selectedProducts.join(",")
+          JSON.stringify({
+            ids: condition.selectedProducts,
+            titles: condition.productTitles,
+            details: condition.productDetails,
+          }),
         );
       } else if (condition.discountType === "shipping_country") {
         formData.append(`country`, condition.country);
@@ -395,26 +473,27 @@ export function Body({ id }) {
     try {
       await fetcher.submit(formData, {
         method: "POST",
-        action: ".", // Replace with actual route
+        action: ".",
       });
 
-      // Handle successful submission
       if (fetcher.data?.error) {
-        throw new Error(fetcher.data.error);
+        setAlertMessage({
+          status: "critical",
+          message: fetcher.data.error,
+        });
+        setIsSubmitting(false);
+        return;
       }
 
-      // Reset form or show success message
-      if (fetcher.state === "idle" && !fetcher.data?.error) {
-        // Optional: Reset form here
-        // setCustomizeName("");
-        // setParentValue("");
-        // setConditions([...]);
-      }
+      setAlertMessage({
+        status: "success",
+        message: "Settings saved successfully!",
+      });
     } catch (error) {
       console.error("Submission error:", error);
-      setErrors({
-        ...errors,
-        form: "Failed to save. Please try again.",
+      setAlertMessage({
+        status: "critical",
+        message: error.message || "Failed to save. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -423,6 +502,16 @@ export function Body({ id }) {
 
   return (
     <Grid>
+      <Grid.Cell columnSpan={{ md: 12, lg: 12, xl: 12 }}>
+        {alertMessage && (
+          <Banner
+            tone={alertMessage.status === "success" ? "success" : "critical"}
+            onDismiss={() => setAlertMessage(null)}
+          >
+            {alertMessage.message}
+          </Banner>
+        )}
+      </Grid.Cell>
       <Grid.Cell columnSpan={{ md: 12, lg: 8, xl: 8 }}>
         <Card
           style={{
@@ -438,23 +527,14 @@ export function Body({ id }) {
               {/* Customization Name */}
               <div>
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Customization Name
+                  Customization Namee
                 </label>
                 <TextField
                   placeholder="Example: Hide Cash on Delivery (COD) For Large Orders"
                   style={{ width: "100%" }}
                   name="customizeName"
                   value={customizeName}
-                  onChange={(e) => {
-                    setCustomizeName(e);
-                    if (errors.customizeName) {
-                      setErrors((prev) => ({
-                        ...prev,
-                        customizeName: undefined,
-                      }));
-                    }
-                  }}
-                  error={errors.customizeName}
+                  onChange={setCustomizeName}
                 />
                 <p
                   style={{
@@ -472,17 +552,7 @@ export function Body({ id }) {
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
                   Select Payment Method
                 </label>
-                <AutocompleteExample
-                  onValueChange={(value) => {
-                    handleChildValue(value);
-                    if (errors.paymentMethod) {
-                      setErrors((prev) => ({
-                        ...prev,
-                        paymentMethod: undefined,
-                      }));
-                    }
-                  }}
-                />
+                <AutocompleteExample onValueChange={handleChildValue} />
                 {errors.paymentMethod && (
                   <div
                     style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
@@ -562,7 +632,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value
+                              value,
                             )
                           }
                           name={`greaterSmaller`}
@@ -571,18 +641,9 @@ export function Body({ id }) {
                           placeholder="100"
                           type="number"
                           value={cartAmount}
-                          onChange={(value) => {
-                            setCartAmount(value);
-                            if (errors[`cartAmount`]) {
-                              setErrors((prev) => ({
-                                ...prev,
-                                [`cartAmount`]: undefined,
-                              }));
-                            }
-                          }}
+                          onChange={setCartAmount}
                           style={{ flex: 1 }}
                           name="cartTotal"
-                          error={errors[`cartAmount`]}
                         />
                       </div>
                     )}
@@ -603,7 +664,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value
+                              value,
                             )
                           }
                           name={`greaterSmaller`}
@@ -615,11 +676,27 @@ export function Body({ id }) {
                           name={`selectedProducts`}
                         />
                         <Button
-                          onClick={() => openModalForCondition(index)}
+                          onClick={() => handleProductPicker(index)}
                           disabled={isSubmitting}
                         >
                           Select Products
                         </Button>
+                        {condition.productTitles &&
+                          condition.productTitles.length > 0 && (
+                            <div style={{ marginTop: "10px" }}>
+                              <Text variant="bodyMd">Selected Products:</Text>
+                              <ul
+                                style={{
+                                  marginTop: "5px",
+                                  paddingLeft: "20px",
+                                }}
+                              >
+                                {condition.productTitles.map((title, idx) => (
+                                  <li key={idx}>{title}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         {errors[`products`] && (
                           <div style={{ color: "red", fontSize: "12px" }}>
                             {errors[`products`]}
@@ -638,7 +715,7 @@ export function Body({ id }) {
                             handleConditionChange(
                               index,
                               "greaterOrSmall",
-                              value
+                              value,
                             )
                           }
                           name={`greaterSmaller`}
@@ -650,17 +727,10 @@ export function Body({ id }) {
                           ]}
                           style={{ flex: 1 }}
                           value={condition.country}
-                          onChange={(value) => {
-                            handleConditionChange(index, "country", value);
-                            if (errors[`country`]) {
-                              setErrors((prev) => ({
-                                ...prev,
-                                [`country`]: undefined,
-                              }));
-                            }
-                          }}
+                          onChange={(value) =>
+                            handleConditionChange(index, "country", value)
+                          }
                           name={`country`}
-                          error={errors[`country`]}
                         />
                       </div>
                     )}
@@ -701,40 +771,6 @@ export function Body({ id }) {
               </div>
             </div>
           </Form>
-
-          {/* Product Model */}
-          <Modal
-            open={modalActive}
-            onClose={toggleModal}
-            title="Select Products"
-            primaryAction={{
-              content: "Confirm",
-              onAction: handleConfirmSelection,
-            }}
-            secondaryActions={{
-              content: "Cancel",
-              onAction: toggleModal,
-            }}
-          >
-            <Modal.Section>
-              <Listbox>
-                {products.map((product) => (
-                  <Listbox.Option
-                    key={product.id}
-                    value={product.id}
-                    selected={selectedProducts.includes(product.id)}
-                    onClick={() => handleSelectProduct(product.id)}
-                  >
-                    <Checkbox
-                      label={product.title}
-                      checked={selectedProducts.includes(product.id)}
-                      onChange={() => handleSelectProduct(product.id)}
-                    />
-                  </Listbox.Option>
-                ))}
-              </Listbox>
-            </Modal.Section>
-          </Modal>
         </Card>
       </Grid.Cell>
       <Grid.Cell columnSpan={{ md: 12, lg: 4, xl: 4 }}>
@@ -757,7 +793,7 @@ export function Body({ id }) {
 export function AutocompleteExample({ onValueChange }) {
   const deselectedOptions = useMemo(
     () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
-    []
+    [],
   );
 
   const [selectedOptions, setSelectedOptions] = useState([]);
@@ -773,11 +809,11 @@ export function AutocompleteExample({ onValueChange }) {
       }
       const filterRegex = new RegExp(value, "i");
       const resultOptions = deselectedOptions.filter((option) =>
-        option.label.match(filterRegex)
+        option.label.match(filterRegex),
       );
       setOptions(resultOptions);
     },
-    [deselectedOptions]
+    [deselectedOptions],
   );
 
   const updateSelection = useCallback(
@@ -792,7 +828,7 @@ export function AutocompleteExample({ onValueChange }) {
       setInputValue(selectedValue[0] || "");
       onValueChange(selectedValue[0] || "");
     },
-    [options, onValueChange]
+    [options, onValueChange],
   );
 
   const textField = (

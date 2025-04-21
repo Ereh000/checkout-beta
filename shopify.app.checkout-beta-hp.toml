@@ -1,14 +1,10 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "e3344672bc14dd27d97420f5295b0df1"
-application_url = "https://somewhat-new-carrying-bg.trycloudflare.com"
-embedded = true
 name = "checkout-beta-hp"
 handle = "checkout-beta-hp"
-
-[build]
-automatically_update_urls_on_dev = true
-include_config_on_deploy = true
+application_url = "https://antonio-fire-frame-generating.trycloudflare.com"
+embedded = true
 
 [webhooks]
 api_version = "2025-01"
@@ -19,10 +15,13 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://somewhat-new-carrying-bg.trycloudflare.com/auth/callback",
-  "https://somewhat-new-carrying-bg.trycloudflare.com/auth/shopify/callback",
-  "https://somewhat-new-carrying-bg.trycloudflare.com/api/auth/callback"
+  "https://antonio-fire-frame-generating.trycloudflare.com/auth/callback",
+  "https://antonio-fire-frame-generating.trycloudflare.com/auth/shopify/callback",
+  "https://antonio-fire-frame-generating.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
 embedded = false
+
+[build]
+automatically_update_urls_on_dev = true

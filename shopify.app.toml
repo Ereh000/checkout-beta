@@ -3,7 +3,7 @@
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
 name = "checkout-beta"
 handle = "checkout-beta-1"
-application_url = "https://feels-liverpool-alt-helped.trycloudflare.com"
+application_url = "https://downloading-patient-sounds-sleeping.trycloudflare.com"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://feels-liverpool-alt-helped.trycloudflare.com/auth/callback",
-  "https://feels-liverpool-alt-helped.trycloudflare.com/auth/shopify/callback",
-  "https://feels-liverpool-alt-helped.trycloudflare.com/api/auth/callback"
+  "https://downloading-patient-sounds-sleeping.trycloudflare.com/auth/callback",
+  "https://downloading-patient-sounds-sleeping.trycloudflare.com/auth/shopify/callback",
+  "https://downloading-patient-sounds-sleeping.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
