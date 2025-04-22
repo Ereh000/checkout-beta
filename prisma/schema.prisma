@@ -1,5 +1,5 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// learn more about it in the docs: https://pris.ly/d/prisma-schema-reference
 
 generator client {
   provider = "prisma-client-js"
@@ -41,4 +41,17 @@ model UpsellSettings {
   selectionType       String   @default("specific") // Add this line
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model PaymentRename {
+  id            String   @id @default(cuid())
+  shopId        String
+  customizeName String
+  paymentMethod String
+  newName       String
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("payment_renames")
 }

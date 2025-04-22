@@ -8,6 +8,7 @@ import {
   Box,
   Grid,
   Autocomplete,
+  Banner,
 } from "@shopify/polaris";
 
 // Import React hooks and utilities
@@ -24,6 +25,7 @@ import {
   useFetcher,
   useLoaderData,
 } from "@remix-run/react";
+import prisma from "../db.server";
 
 /**
  * Loader function to fetch shop data from Shopify API.
@@ -74,6 +76,17 @@ export async function action({ request }) {
   });
 
   try {
+    // Save to Prisma DB
+    const dbSave = await prisma.paymentRename.create({
+      data: {
+        shopId: shopId,
+        customizeName: customizeName,
+        paymentMethod: paymentMethod,
+        newName: newName,
+        status: "active",
+      },
+    });
+
     // Send a GraphQL mutation to update Shopify metafields with the configuration
     const response = await admin.graphql(
       `#graphql
@@ -107,8 +120,19 @@ export async function action({ request }) {
         },
       },
     );
-    const data = await response.json(); // Parse the JSON response
-    return data; // Return the updated metafield data
+    const metafieldData = await response.json();
+
+    // Check if both operations were successful
+    if (dbSave && !metafieldData.data.metafieldsSet.userErrors.length) {
+      return json({
+        success: true,
+        message: "Successfully saved to database and metafields",
+        dbSave,
+        metafield: metafieldData.data.metafieldsSet
+      });
+    } else {
+      throw new Error("Failed to save all data");
+    }
   } catch (error) {
     // Handle errors by returning an error response
     return json({ error: error.message }, { status: 500 });
@@ -126,7 +150,7 @@ export default function CustomizationSection() {
 
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }} // Back button navigation
+      backAction={{ content: "Settings", url: "/app/payment-customization" }} // Back button navigation
       title="Payment Method Name" // Page title
     >
       <Body id={id} /> {/* Render the main form body */}
@@ -144,6 +168,7 @@ export function Body({ id }) {
   const [newName, setNewName] = useState(""); // State for new payment method name
   const fetcher = useFetcher(); // Utility for submitting forms and fetching data
   const [errors, setErrors] = useState({}); // State for form validation errors
+  const [notification, setNotification] = useState(null); // Add this state
 
   /**
    * Function to validate the form inputs.
@@ -164,8 +189,22 @@ export function Body({ id }) {
     if (!newName.trim()) {
       newErrors.newName = "New Name is required";
     }
+
+    if (Object.keys(newErrors).length > 0) {
+      setNotification({
+        status: "critical",
+        message: (
+          <ul style={{ margin: 0, paddingLeft: "20px" }}>
+            {Object.values(newErrors).map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        ),
+      });
+    }
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0; // Return true if no errors
+    return Object.keys(newErrors).length === 0;
   };
 
   /**
@@ -184,25 +223,41 @@ export function Body({ id }) {
     formData.append("new_name", newName.trim());
 
     try {
-      await fetcher.submit(formData, { method: "POST", action: "." }); // Submit the form data
-      if (fetcher.data?.error) {
-        throw new Error(fetcher.data.error); // Handle server-side errors
-      }
-      if (fetcher.state === "idle" && !fetcher.data?.error) {
-        setCustomizeName(""); // Reset form fields on success
+      await fetcher.submit(formData, { method: "POST", action: "." });
+
+      if (fetcher.data?.success) {
+        setCustomizeName("");
         setParentValue("");
+        setNewName("");
+        setNotification({
+          status: "success",
+          message: fetcher.data.message,
+        });
+      } else if (fetcher.data?.error) {
+        throw new Error(fetcher.data.message || fetcher.data.error);
       }
     } catch (error) {
       console.error("Submission error:", error);
-      setErrors((prev) => ({
-        ...prev,
-        form: "Failed to save. Please try again.",
-      }));
+      setNotification({
+        status: "critical",
+        message: error.message || "Failed to save. Please try again.",
+      });
     }
   };
 
   return (
     <Grid>
+      {notification && (
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 12, lg: 12, xl: 12 }}>
+          <Banner
+            title={notification.status === "success" ? "Success" : "Error"}
+            tone={notification.status}
+            onDismiss={() => setNotification(null)}
+          >
+            {notification.message}
+          </Banner>
+        </Grid.Cell>
+      )}
       {/* Left Column: Form Fields */}
       <Grid.Cell columnSpan={{ md: 12, lg: 8, xl: 8 }}>
         <Card
@@ -236,7 +291,6 @@ export function Body({ id }) {
                       }));
                     }
                   }}
-                  error={errors.customizeName}
                 />
                 {/* Helper text for customization name */}
                 <p
@@ -267,13 +321,13 @@ export function Body({ id }) {
                   }}
                 />
                 {/* Error message for payment method selection */}
-                {errors.paymentMethod && (
+                {/* {errors.paymentMethod && (
                   <div
                     style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
                   >
                     {errors.paymentMethod}
                   </div>
-                )}
+                )} */}
                 {/* Hidden input for selected payment method */}
                 <input type="hidden" name="paymentMethod" value={parentValue} />
               </div>
@@ -305,7 +359,6 @@ export function Body({ id }) {
                       }));
                     }
                   }}
-                  error={errors.newName}
                 />
               </div>
               {/* Save Button */}
@@ -326,16 +379,38 @@ export function Body({ id }) {
       {/* Right Column: Sidebar Information */}
       <Grid.Cell columnSpan={{ md: 12, lg: 4, xl: 4 }}>
         <Card roundedAbove="sm">
-          {/* Title for the sidebar section */}
           <Text as="h2" variant="headingSm">
             Conditions
           </Text>
-          {/* Information about conditions */}
           <Box paddingBlockStart="200">
             <Text as="p" variant="bodyMd">
               The payment method will always have the updated name if there are
               no conditions set
             </Text>
+
+            {/* Display selected inputs */}
+            <Box paddingBlockStart="400">
+              {customizeName && (
+                <Box paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="span">Customization Name: </Text>
+                  <Text as="span">{customizeName}</Text>
+                </Box>
+              )}
+
+              {parentValue && (
+                <Box paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="span">Payment Method: </Text>
+                  <Text as="span">{parentValue}</Text>
+                </Box>
+              )}
+
+              {newName && (
+                <Box paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="span">New Name: </Text>
+                  <Text as="span">{newName}</Text>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Card>
       </Grid.Cell>

@@ -101,11 +101,14 @@ export async function loader({ request, params }) {
 // Action function to handle form submissions
 export async function action({ request, params }) {
     const { admin } = await authenticate.admin(request);
-
     const formData = await request.formData();
     const action = formData.get("action");
     const shopId = formData.get("shopId");
     const { id } = params;
+
+    if (!action || !shopId) {
+        throw new Error("Missing required fields");
+    }
 
     // Handle delete metafields action
     if (action === "deleteUpsellMetafields") {
@@ -208,9 +211,26 @@ export async function action({ request, params }) {
 
             console.log("settings:", settings)
 
-            // Validate upsell name
-            if (!settings.upsellName) {
-                throw new Error("Upsell name is required");
+            // Validate all required fields
+            const validationErrors = [];
+            if (!settings.upsellName?.trim()) {
+                validationErrors.push("Upsell name is required");
+            }
+            if (settings.selectionType === "specific" &&
+                settings.selectedProducts.length === 0 &&
+                settings.selectedCollections.length === 0) {
+                validationErrors.push("Please select either products or collections");
+            }
+            if (!settings.upsellProducts.some(product => product)) {
+                validationErrors.push("Please select at least one upsell product");
+            }
+
+            // If there are validation errors, return them
+            if (validationErrors.length > 0) {
+                return json({
+                    success: false,
+                    error: validationErrors.join(", "),
+                }, { status: 400 });
             }
 
             let dbSettings = await prisma.upsellSettings.update({
@@ -350,14 +370,10 @@ export async function action({ request, params }) {
                 });
             }
         } catch (error) {
-            // console.error("Error saving settings:", error);
-            return json(
-                {
-                    success: false,
-                    error: error.message,
-                },
-                { status: 500 },
-            );
+            return json({
+                success: false,
+                error: error.message || "Failed to save settings"
+            });
         }
     }
 }
@@ -375,12 +391,45 @@ export default function MainCreatUpsell() {
         upsellProducts: initialData.upsellProducts,
     });
 
+    const fetcher = useFetcher();
+    const [isDeleting, setIsDeleting] = useState(false);
+
     return (
         <UpsellContext.Provider value={{ upsellData, setUpsellData }}>
             <Page
                 title={`Edit Upsell: ${upsellData.upsellName}`}
                 backAction={{ content: "Back", url: "/app/manage-upsell" }}>
                 <Layout>
+                    {/* <Layout.Section>
+                        {fetcher.state === "submitting" && (
+                            <Banner tone="info">
+                                {isDeleting ? "Deleting metafields..." : "Saving all settings..."}
+                            </Banner>
+                        )}
+                        {fetcher.state === "idle" && fetcher.data?.success && (
+                            <Banner
+                                tone="success"
+                                onDismiss={() => {
+                                    fetcher.data = null;
+                                    setIsDeleting(false);
+                                }}
+                            >
+                                {fetcher.data?.deleted ? "Metafields deleted successfully!" : "All settings saved successfully!"}
+                            </Banner>
+                        )}
+                        {fetcher.state === "idle" && fetcher.data?.error && (
+                            <Banner
+                                tone="critical"
+                                onDismiss={() => {
+                                    fetcher.data = null;
+                                    setIsDeleting(false);
+                                }}
+                            >
+                                Error: {fetcher.data.error}
+                            </Banner>
+                        )}
+                    </Layout.Section> */}
+                    {/*  */}
                     <Layout.Section>
                         <Banner title="Note:" onDismiss={() => { }}>
                             <p>
@@ -389,11 +438,14 @@ export default function MainCreatUpsell() {
                                 the checkout editor. Please contact us if you need assistance.
                             </p>
                         </Banner>
+                        <br />
                         <CreateUpsell />
+                        <br />
                         <ConditionToDisplayUpsellSection
                             products={products}
                             collections={collections}
                         />
+                        <br />
                         <SelectProductForUpsell shopId={shopId} products={products} />
                     </Layout.Section>
                     <Layout.Section variant="oneThird">
@@ -403,6 +455,8 @@ export default function MainCreatUpsell() {
                     </Layout.Section>
                 </Layout>
             </Page>
+            <br />
+            <br />
         </UpsellContext.Provider>
     );
 }
@@ -785,66 +839,85 @@ export function SelectProductForUpsell({ products, shopId }) {
     );
 
     return (
-        <Card
-            style={{
-                padding: "20px",
-                borderRadius: "8px",
-                border: "1px solid #E5E7EB",
-            }}
-        >
-            <Text as="h3" variant="headingMd">
-                Step #3: Select Products to Offer at Checkout
-            </Text>
-            <Text style={{ marginTop: "5px", fontSize: "14px", color: "#6B7280" }}>
-                These products will be offered at checkout as upsells if they are not
-                already in the cart
-            </Text>
-            <div
+        <div className="">
+            <Card
                 style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: "16px",
-                    marginTop: "20px",
+                    padding: "20px",
+                    borderRadius: "8px",
+                    border: "1px solid #E5E7EB",
                 }}
             >
-                {["Product 1", "Product 2", "Product 3"].map((label, index) => (
-                    <Card key={index}>
-                        <Text fontWeight="bold">{label}</Text>
-                        <div style={{ marginTop: "8px", marginBottom: "8px" }}>
-                            {upsellData.upsellProducts[index] && (
-                                <Text color="subdued" as="span">
-                                    {getProductTitle(upsellData.upsellProducts[index])}<br />
-                                </Text>
-                            )}
-                        </div>
-                        <Button plain fullWidth onClick={() => toggleModal(index, true)}>
-                            {upsellData.upsellProducts[index] ? "Change Product" : "Select Product"}
-                        </Button>
-                    </Card>
-                ))}
+                <Text as="h3" variant="headingMd">
+                    Step #3: Select Products to Offer at Checkout
+                </Text>
+                <Text style={{ marginTop: "5px", fontSize: "14px", color: "#6B7280" }}>
+                    These products will be offered at checkout as upsells if they are not
+                    already in the cart
+                </Text>
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: "16px",
+                        marginTop: "20px",
+                    }}
+                >
+                    {["Product 1", "Product 2", "Product 3"].map((label, index) => (
+                        <Card key={index}>
+                            <Text fontWeight="bold">{label}</Text>
+                            <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+                                {upsellData.upsellProducts[index] && (
+                                    <Text color="subdued" as="span">
+                                        {getProductTitle(upsellData.upsellProducts[index])}<br />
+                                    </Text>
+                                )}
+                            </div>
+                            <Button plain fullWidth onClick={() => toggleModal(index, true)}>
+                                {upsellData.upsellProducts[index] ? "Change Product" : "Select Product"}
+                            </Button>
+                        </Card>
+                    ))}
+                </div>
+                <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
+                    <Button onClick={saveAllSettings} variant="primary">
+                        Save All Settings
+                    </Button>
+                    <Button onClick={deleteUpsellMetafields} variant="primary" tone="critical" disabled={isDeleting}>
+                        {isDeleting ? "Deleting..." : "Delete Metafields"}
+                    </Button>
+                </div>
+                {modals.map((_, index) => renderModal(index))}
+                {/* {fetcher.state === "submitting" && (
+                    <Banner status="info">
+                        {isDeleting ? "Deleting metafields..." : "Saving all settings..."}
+                    </Banner>
+                )}
+                {fetcher.state === "idle" && fetcher.data?.success && (
+                    <Banner status="success">
+                        {fetcher.data?.deleted ? "Metafields deleted successfully!" : "All settings saved successfully!"}
+                    </Banner>
+                )}
+                {fetcher.state === "idle" && fetcher.data?.error && (
+                    <Banner status="critical">Error: {fetcher.data.error}</Banner>
+                )} */}
+            </Card>
+            <br />
+            <div className="">
+                {fetcher.state === "submitting" && (
+                    <Banner status="info">
+                        {isDeleting ? "Deleting metafields..." : "Saving all settings..."}
+                    </Banner>
+                )}
+                {fetcher.state === "idle" && fetcher.data?.success && (
+                    <Banner status="success">
+                        {fetcher.data?.deleted ? "Metafields deleted successfully!" : "All settings saved successfully!"}
+                    </Banner>
+                )}
+                {fetcher.state === "idle" && fetcher.data?.error && (
+                    <Banner status="critical">Error: {fetcher.data.error}</Banner>
+                )}
             </div>
-            <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
-                <Button onClick={saveAllSettings} primary>
-                    Save All Settings
-                </Button>
-                <Button onClick={deleteUpsellMetafields} destructive disabled={isDeleting}>
-                    {isDeleting ? "Deleting..." : "Delete Metafields"}
-                </Button>
-            </div>
-            {modals.map((_, index) => renderModal(index))}
-            {fetcher.state === "submitting" && (
-                <Banner status="info">
-                    {isDeleting ? "Deleting metafields..." : "Saving all settings..."}
-                </Banner>
-            )}
-            {fetcher.state === "idle" && fetcher.data?.success && (
-                <Banner status="success">
-                    {fetcher.data?.deleted ? "Metafields deleted successfully!" : "All settings saved successfully!"}
-                </Banner>
-            )}
-            {fetcher.state === "idle" && fetcher.data?.error && (
-                <Banner status="critical">Error: {fetcher.data.error}</Banner>
-            )}
-        </Card>
+            <br />
+        </div>
     );
 }
