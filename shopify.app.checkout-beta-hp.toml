@@ -3,7 +3,7 @@
 client_id = "e3344672bc14dd27d97420f5295b0df1"
 name = "checkout-beta-hp"
 handle = "checkout-beta-hp"
-application_url = "https://antonio-fire-frame-generating.trycloudflare.com"
+application_url = "https://optical-traveler-batteries-lessons.trycloudflare.com"
 embedded = true
 
 [webhooks]
@@ -15,9 +15,9 @@ scopes = "write_discounts,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://antonio-fire-frame-generating.trycloudflare.com/auth/callback",
-  "https://antonio-fire-frame-generating.trycloudflare.com/auth/shopify/callback",
-  "https://antonio-fire-frame-generating.trycloudflare.com/api/auth/callback"
+  "https://optical-traveler-batteries-lessons.trycloudflare.com/auth/callback",
+  "https://optical-traveler-batteries-lessons.trycloudflare.com/auth/shopify/callback",
+  "https://optical-traveler-batteries-lessons.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

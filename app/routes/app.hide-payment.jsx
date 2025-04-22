@@ -35,7 +35,7 @@ import {
 
 // Loader function to fetch shop data from Shopify API
 export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   try {
     // Query the Shopify GraphQL API to get the shop ID
@@ -59,6 +59,7 @@ export async function loader({ request }) {
   }
 }
 
+// Action function to handle form submissions and update Shopify metafields
 // Action function to handle form submissions and update Shopify metafields
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
@@ -115,16 +116,16 @@ export async function action({ request }) {
 
     // Assign conditions to respective categories
     switch (conditionType) {
-      case "cart_total":
-        cartTotalConditions.push({
-          greaterOrSmall,
-          amount,
-        });
-        break;
       case "product":
         productConditions.push({
           greaterOrSmall,
           products,
+        });
+        break;
+      case "cart_total":
+        cartTotalConditions.push({
+          greaterOrSmall,
+          amount,
         });
         break;
       case "shipping_country":
@@ -211,24 +212,24 @@ export async function action({ request }) {
 
 // Main component rendering the page
 export default function CustomizationSection() {
-  const { id } = useLoaderData(); // Fetch shop ID from loader data
+  const { id, host } = useLoaderData(); // Fetch shop ID from loader data
   const dataa = useActionData(); // Fetch action data after form submission
 
   console.log("data", dataa);
 
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }} // Back button navigation
+      backAction={{ content: "Settings", url: "/app/payment-customization" }} // Back button navigation
       title="Hide Payment Method" // Page title
     >
-      <Body id={id} /> {/* Render the main form body */}
+      <Body id={id} host={host} /> {/* Render the main form body */}
     </Page>
   );
 }
 
 // Component responsible for rendering the form fields and interactions
-export function Body({ id }) {
-  const { host } = useLoaderData(); // Fetch host information from loader data
+export function Body({ id, host }) {
+  // const { host } = useLoaderData(); // Fetch host information from loader data
 
   const [alertMessage, setAlertMessage] = useState(null); // Add new state for alert messages
   const [parentValue, setParentValue] = useState(""); // Parent value state
@@ -245,8 +246,8 @@ export function Body({ id }) {
   // State to manage the list of conditions
   const [conditions, setConditions] = useState([
     {
-      discountType: "cart_total",
-      greaterOrSmall: "greater_than",
+      discountType: "product",
+      greaterOrSmall: "is",
       amount: 0,
       selectedProducts: [],
       country: "in",
@@ -278,10 +279,10 @@ export function Body({ id }) {
           prevConditions.map((c, i) =>
             i === index
               ? {
-                  ...c,
-                  selectedProducts: selectedProducts.map((p) => p.id),
-                  productTitles: selectedProducts.map((p) => p.title),
-                }
+                ...c,
+                selectedProducts: selectedProducts.map((p) => p.id),
+                productTitles: selectedProducts.map((p) => p.title),
+              }
               : c,
           ),
         );
@@ -349,7 +350,7 @@ export function Body({ id }) {
     );
   };
 
-  const [cartAmount, setCartAmount] = useState(0); // Cart amount state
+  // const [cartAmount, setCartAmount] = useState(0); // Cart amount state
 
   // Function to open modal and set current condition index
   const openModalForCondition = (index) => {
@@ -399,12 +400,12 @@ export function Body({ id }) {
       errorMessages.push("At least one condition is required");
     } else {
       conditions.forEach((condition) => {
-        if (condition.discountType === "cart_total" && !cartAmount) {
+        if (condition.discountType === "cart_total" && !condition.amount) {
           errorMessages.push("Cart amount is required");
         }
         if (
           condition.discountType === "product" &&
-          condition.selectedProducts.length === 0
+          (!condition.selectedProducts || condition.selectedProducts.length === 0)
         ) {
           errorMessages.push("At least one product must be selected");
         }
@@ -454,19 +455,14 @@ export function Body({ id }) {
     conditions.forEach((condition, index) => {
       formData.append(`conditionType`, condition.discountType);
       formData.append(`greaterSmaller`, condition.greaterOrSmall);
+
       if (condition.discountType === "cart_total") {
-        formData.append(`cartTotal`, cartAmount);
+        formData.append(`cartTotal`, parseFloat(condition.amount) || 0); // Changed to parseFloat
       } else if (condition.discountType === "product") {
-        formData.append(
-          `selectedProducts`,
-          JSON.stringify({
-            ids: condition.selectedProducts,
-            titles: condition.productTitles,
-            details: condition.productDetails,
-          }),
-        );
+        const productIds = condition.selectedProducts || [];
+        formData.append(`selectedProducts`, productIds.join(","));
       } else if (condition.discountType === "shipping_country") {
-        formData.append(`country`, condition.country);
+        formData.append(`country`, condition.country || "");
       }
     });
 
@@ -527,7 +523,7 @@ export function Body({ id }) {
               {/* Customization Name */}
               <div>
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Customization Namee
+                  Customization Name
                 </label>
                 <TextField
                   placeholder="Example: Hide Cash on Delivery (COD) For Large Orders"
@@ -618,12 +614,13 @@ export function Body({ id }) {
                     </div>
 
                     {/* Condition-specific fields */}
+                    {/* grater/lessThan label revrsed as logic works like this */}
                     {condition.discountType === "cart_total" && (
                       <div style={{ display: "flex", gap: "10px" }}>
                         <Select
                           options={[
-                            { label: "is greater than", value: "greater_than" },
-                            { label: "is less than", value: "less_than" },
+                            { label: "is less than", value: "greater_than" },
+                            { label: "is greater than", value: "less_than" },
                           ]}
                           placeholder="Select a condition"
                           style={{ flex: 1 }}
@@ -640,8 +637,8 @@ export function Body({ id }) {
                         <TextField
                           placeholder="100"
                           type="number"
-                          value={cartAmount}
-                          onChange={setCartAmount}
+                          value={condition.amount}
+                          onChange={(value) => handleConditionChange(index, "amount", parseFloat(value))}
                           style={{ flex: 1 }}
                           name="cartTotal"
                         />
@@ -681,7 +678,7 @@ export function Body({ id }) {
                         >
                           Select Products
                         </Button>
-                        {condition.productTitles &&
+                        {/* {condition.productTitles &&
                           condition.productTitles.length > 0 && (
                             <div style={{ marginTop: "10px" }}>
                               <Text variant="bodyMd">Selected Products:</Text>
@@ -696,7 +693,7 @@ export function Body({ id }) {
                                 ))}
                               </ul>
                             </div>
-                          )}
+                          )} */}
                         {errors[`products`] && (
                           <div style={{ color: "red", fontSize: "12px" }}>
                             {errors[`products`]}
@@ -780,8 +777,71 @@ export function Body({ id }) {
           </Text>
           <Box paddingBlockStart="200">
             <Text as="p" variant="bodyMd">
-              View a summary of your online store’s performance.
+              View a summary of your selections below:
             </Text>
+
+            {/* Display selected inputs */}
+            <Box paddingBlockStart="300">
+              {customizeName && (
+                <Box paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="span">Customization Name: </Text>
+                  <Text as="span">{customizeName}</Text>
+                </Box>
+              )}
+
+              {parentValue && (
+                <Box paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="span">Payment Method: </Text>
+                  <Text as="span">{parentValue}</Text>
+                </Box>
+              )}
+
+              {conditions.map((condition, index) => (
+                <Box key={index} paddingBlockEnd="200">
+                  <Text fontWeight="bold" as="p">Condition {index + 1}:</Text>
+
+                  <Box paddingInlineStart="300" paddingBlockEnd="100">
+                    <Text fontWeight="bold" as="span">Type: </Text>
+                    <Text as="span">
+                      {condition.discountType === "cart_total"
+                        ? "Cart Total"
+                        : condition.discountType === "product"
+                          ? "Product"
+                          : "Shipping Country"}
+                    </Text>
+                  </Box>
+
+                  {condition.discountType === "cart_total" && (
+                    <Box paddingInlineStart="300" paddingBlockEnd="100">
+                      <Text fontWeight="bold" as="span">Amount: </Text>
+                      <Text as="span">
+                        {condition.greaterOrSmall === "greater_than" ? ">" : "<"} {condition.amount}
+                      </Text>
+                    </Box>
+                  )}
+
+                  {condition.discountType === "product" && condition.productTitles && (
+                    <Box paddingInlineStart="300" paddingBlockEnd="100">
+                      <Text fontWeight="bold" as="p">Selected Products:</Text>
+                      <ul style={{ margin: "5px 0", paddingLeft: "20px" }}>
+                        {condition.productTitles.map((title, idx) => (
+                          <li key={idx}>
+                            <Text as="span">{title}</Text>
+                          </li>
+                        ))}
+                      </ul>
+                    </Box>
+                  )}
+
+                  {condition.discountType === "shipping_country" && (
+                    <Box paddingInlineStart="300" paddingBlockEnd="100">
+                      <Text fontWeight="bold" as="span">Country: </Text>
+                      <Text as="span">{condition.country.toUpperCase()}</Text>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </Box>
           </Box>
         </Card>
       </Grid.Cell>
