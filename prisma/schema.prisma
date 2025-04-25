@@ -55,3 +55,17 @@ model PaymentRename {
 
   @@map("payment_renames")
 }
+
+
+// Add the new model for Shipping Customization
+model ShippingCustomization {
+  id                   String   @id @default(cuid()) // Unique identifier
+  shop                 String   // Shop domain associated with this customization
+  name                 String   // User-defined name for the customization
+  shippingMethodToHide String   // The name of the shipping method to hide
+  conditions           Json     // JSON field to store the array of condition objects
+  createdAt            DateTime @default(now()) // Timestamp of creation
+  updatedAt            DateTime @updatedAt // Timestamp of last update
+  @@index([shop]) // Add an index for faster lookups by shop
+  @@map("shipping_customizations") // Optional: map to a specific table name
+}

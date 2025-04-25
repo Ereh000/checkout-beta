@@ -1,0 +1,18 @@
+query RunInput {
+  cart {
+    deliveryGroups {
+      deliveryOptions {
+        handle
+        title
+      }
+    }
+  }
+}
+
+# query RunInput {
+#   deliveryCustomization {
+#     metafield(namespace: "$app:hide-shipping-method", key: "function-configuration") {
+#       value
+#     }
+#   }
+# }

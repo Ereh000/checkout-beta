@@ -301,19 +301,6 @@ export function Body({ id, host }) {
     ); // Add or remove selected products
   }, []);
 
-  // const handleConfirmSelection = useCallback(() => {
-  //   if (currentConditionIndex !== null) {
-  //     setConditions((prevConditions) =>
-  //       prevConditions.map((c, i) =>
-  //         i === currentConditionIndex
-  //           ? { ...c, selectedProducts: selectedProducts }
-  //           : c,
-  //       ),
-  //     );
-  //   }
-  //   toggleModal(); // Confirm product selection and close modal
-  // }, [currentConditionIndex, selectedProducts, toggleModal]);
-
   // Update the selectedProductTitles calculation
   const selectedProductTitles =
     conditions[currentConditionIndex]?.selectedProducts || [];
