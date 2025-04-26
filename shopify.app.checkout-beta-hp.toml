@@ -3,7 +3,7 @@
 client_id = "76b38acc3a61143bfdfc236b65ac1968"
 name = "checkout-beta"
 handle = "checkout-beta-1"
-application_url = "https://cage-prizes-angela-pakistan.trycloudflare.com"
+application_url = "https://pledge-projector-bears-configured.trycloudflare.com"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "write_discounts,write_payment_customizations,write_products,write_deli
 
 [auth]
 redirect_urls = [
-  "https://cage-prizes-angela-pakistan.trycloudflare.com/auth/callback",
-  "https://cage-prizes-angela-pakistan.trycloudflare.com/auth/shopify/callback",
-  "https://cage-prizes-angela-pakistan.trycloudflare.com/api/auth/callback"
+  "https://pledge-projector-bears-configured.trycloudflare.com/auth/callback",
+  "https://pledge-projector-bears-configured.trycloudflare.com/auth/shopify/callback",
+  "https://pledge-projector-bears-configured.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

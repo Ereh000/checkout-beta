@@ -1,7 +1,7 @@
 query RunInput {
   # Function configuration metafield
   shop {
-    metafield(namespace: "method", key: "hide_shipping") {
+    metafield(namespace: "method", key: "rename_shipping") {
       value
     }
   }

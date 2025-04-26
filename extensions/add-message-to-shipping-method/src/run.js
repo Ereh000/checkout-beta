@@ -112,7 +112,7 @@ export function run(input) {
     return NO_CHANGES;
   }
 
-  const { shippingMethodToHide, conditions } = config;
+  const { shippingMethodToHide, conditions, message } = config;
 
   if (
     !shippingMethodToHide ||
@@ -132,6 +132,7 @@ export function run(input) {
       shouldHide = true;
       console.log(
         `Condition met: ${JSON.stringify(condition)}. Hiding method.`,
+        `Message: ${message}`
       );
       break; // Exit loop early if any condition matches
     }
@@ -140,18 +141,18 @@ export function run(input) {
 
   // --- Generate Operations if needed ---
   if (shouldHide) {
+      // const message = "Updated Shipping Method Name";
+
     const operations = input.cart.deliveryGroups.flatMap((group) =>
       group.deliveryOptions
         // Find the option matching the name from the config
         .filter((option) => option.title === shippingMethodToHide)
-        .map(
-          (option) =>
-            ({
-              hide: {
-                deliveryOptionHandle: option.handle,
-              },
-            }),
-        ),
+        .map((option) => ({
+          rename: {
+            deliveryOptionHandle: option.handle,
+            title: `${option.title} - ${message}`,
+          },
+        })),
     );
 
     if (operations.length > 0) {
@@ -172,18 +173,19 @@ export function run(input) {
 }
 
 // export function run(input) {
+//   const message = "Updated Shipping Method Name";
 
-//   console.log("Response deliveryGroups", input.cart.deliveryGroups);
+//   const toRename = input.cart.deliveryGroups
+//     .flatMap((group) => group.deliveryOptions)
+//     .filter((option) => option.title === "Standard") // Replace with the method to rename
+//     .map((option) => ({
+//       rename: {
+//         deliveryOptionHandle: option.handle,
+//         title: `${option.title} - ${message}`,
+//       },
+//     }));
 
-//   const operations = input.cart.deliveryGroups.flatMap(group =>
-//     group.deliveryOptions
-//       .filter(option => option.title == "Standard") // Replace with the method to hide
-//       .map(option => ({
-//         hide: {
-//           deliveryOptionHandle: option.handle,
-//         },
-//       }))
-//   );
-
-//   return { operations };
+//   return {
+//     operations: toRename,
+//   };
 // }

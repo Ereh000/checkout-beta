@@ -44,7 +44,7 @@ export default function PaymentCustomization() {
       >
         <VideoThumbnail
           videoLength={80}
-          thumbnailUrl="https://burst.shopifycdn.com/photos/business-woman-smiling-in-office.jpg?width=1850"
+          thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
           onClick={() => console.log("clicked")}
         />
       </MediaCard>

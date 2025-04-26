@@ -10,10 +10,9 @@ import {
   Text,
   Icon,
   TextContainer,
+  // Link,
 } from "@shopify/polaris";
-import {
-  ArrowRightIcon,
-} from "@shopify/polaris-icons"; // Importing Close Icon
+import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
 import { Link } from "@remix-run/react";
 
 export default function PaymentCustomization() {
@@ -69,12 +68,20 @@ export default function PaymentCustomization() {
         >
           {/* Option 1 */}
           <Modal.Section>
-            <Link>
+            <Link to={'/app/hide-shipping-method'} style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer>
-                <div className="flex justify-between items-center">
+                <div
+                  className="flex justify-between items-center"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
                   <div className="">
                     <Text variant="headingMd" as="h5">
-                      Hide Shipping Method
+                      Hide Shipping Methodd
                     </Text>
                     <p>Hide shipping method based on order totals</p>
                   </div>
@@ -87,9 +94,17 @@ export default function PaymentCustomization() {
           </Modal.Section>
           {/* Option 2 */}
           <Modal.Section>
-            <Link>
+            <Link to={'/app/shipping-add-message'} style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
-                <div className="flex justify-between items-center">
+                <div
+                  className="flex justify-between items-center"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
                   <div className="">
                     <Text variant="headingMd" as="h5">
                       Add Message to Shipping Method
@@ -105,9 +120,17 @@ export default function PaymentCustomization() {
           </Modal.Section>
           {/* Option 3 */}
           <Modal.Section>
-            <Link>
+            <Link style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
-                <div className="flex justify-between items-center">
+                <div
+                  className="flex justify-between items-center"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
                   <div className="">
                     <Text variant="headingMd" as="h5">
                       Reorder Shipping Method
@@ -126,9 +149,17 @@ export default function PaymentCustomization() {
           </Modal.Section>
           {/* Option 4 */}
           <Modal.Section>
-            <Link>
+            <Link style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
-                <div className="flex justify-between items-center">
+                <div
+                  className="flex justify-between items-center"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
                   <div className="">
                     <Text variant="headingMd" as="h5">
                       Don't see what you looking for

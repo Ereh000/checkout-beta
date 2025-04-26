@@ -33,13 +33,12 @@ export async function loader({ request }) {
   // Fetch Shop GraphQL ID in the loader
   const shopIdResponse = await admin.graphql(
     `#graphql
-    query shopInfo {
-      shop {
-        id
-      }
-    }`,
+      query shopInfo {
+        shop {
+          id
+        }
+      }`,
   );
-
   if (!shopIdResponse.ok) {
     console.error(
       "Failed to fetch shop ID in loader:",
@@ -48,6 +47,21 @@ export async function loader({ request }) {
     // Handle error appropriately, maybe throw an error or return a specific state
     throw new Response("Could not retrieve shop identifier.", { status: 500 });
   }
+
+  // const fetchFunctions = await admin.graphql(`
+  //   query {
+  //     shopifyFunctions(first: 50) {
+  //       nodes {
+  //         app {
+  //           title
+  //         }
+  //         apiType
+  //         title
+  //         id
+  //       }
+  //     }
+  //   }
+  // `)
 
   const shopIdData = await shopIdResponse.json();
   const shopGid = shopIdData.data?.shop?.id;
@@ -97,11 +111,7 @@ export async function action({ request }) {
   ) {
     errors.push("Customization name is required");
   }
-  if (
-    !message ||
-    typeof message !== "string" ||
-    !customizeName.trim()
-  ) {
+  if (!message || typeof message !== "string" || !customizeName.trim()) {
     errors.push("Message is required");
   }
   if (
@@ -111,10 +121,9 @@ export async function action({ request }) {
   ) {
     errors.push("Shipping method is required");
   }
-  // if (!Array.isArray(conditions) || conditions.length === 0) {
-  //   errors.push("At least one condition is required.");
-  // } 
-  // else {
+  if (!Array.isArray(conditions) || conditions.length === 0) {
+    errors.push("At least one condition is required.");
+  } else {
     // Add more specific condition validation if needed (e.g., check structure, values)
     const uniqueTypes = ["cart_total", "customer_type", "shipping_country"];
     const typeCount = {};
@@ -171,7 +180,7 @@ export async function action({ request }) {
         );
       }
     });
-  // }
+  }
   // --- End Server-side Validation ---
 
   if (errors.length > 0) {
@@ -203,6 +212,7 @@ export async function action({ request }) {
       data: {
         // Use the shopGid received from the form data
         shop: shopGid,
+        type: "Rename Shipping",
         name: customizeName,
         shippingMethodToHide: shippingMethod,
         message: message,
@@ -215,6 +225,7 @@ export async function action({ request }) {
     // Send a GraphQL mutation to update Shopify metafields with the configuration
     const metaConfig = {
       shop: shopGid,
+      type: "Rename Shipping Method",
       customizeName: customizeName,
       shippingMethodToHide: shippingMethod,
       message: message, // Add message field
@@ -222,25 +233,25 @@ export async function action({ request }) {
     };
     const response = await admin.graphql(
       `#graphql
-      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields {
-            key
-            namespace
-            value
-            createdAt
-            updatedAt
+        mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields {
+              key
+              namespace
+              value
+              createdAt
+              updatedAt
+            }
+            userErrors {
+              field
+              message
+              code
+            }
           }
-          userErrors {
-            field
-            message
-            code
-          }
-        }
-      }`,
+        }`,
       {
         variables: {
-          metafields: [   
+          metafields: [
             {
               key: "rename_shipping",
               namespace: "method",
@@ -283,11 +294,11 @@ export default function MainHideShippingMethod() {
   const [shippingMethod, setShippingMethod] = useState("");
   const [message, setMessage] = useState("");
   const [conditions, setConditions] = useState([
-    // {
-    //   type: "cart_total",
-    //   operator: "greater_than",
-    //   value: "",
-    // },
+    {
+      type: "cart_total",
+      operator: "greater_than",
+      value: "",
+    },
   ]);
   const [alertMessage, setAlertMessage] = useState(null);
 
@@ -408,7 +419,7 @@ export default function MainHideShippingMethod() {
           title="Shipping Method Message"
           backAction={{
             content: "Settings",
-            url: "/app/payment-customization",
+            url: "/app/shipping-customizations",
           }}
           primaryAction={{
             content: "Save",
@@ -506,7 +517,7 @@ function LeftCustomizationForm({
         />
       </div>
       {/* Conditions Section */}
-      <div className="mt-6" style={{ marginTop: '10px'}}>
+      <div className="mt-6" style={{ marginTop: "10px" }}>
         <ConditionBuilder
           conditions={conditions}
           setConditions={setConditions}
@@ -595,8 +606,8 @@ function ConditionBuilder({ conditions, setConditions, setAlertMessage }) {
   return (
     <div>
       {/* <Text variant="headingMd" as="h2" fontWeight="semibold" className="mb-4">
-        Conditions
-      </Text> */}
+          Conditions
+        </Text> */}
       {conditions.map((condition, index) => (
         <div key={index} style={{ marginBottom: "16px" }}>
           <Grid>
