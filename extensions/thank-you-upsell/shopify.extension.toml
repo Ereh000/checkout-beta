@@ -3,21 +3,29 @@
 
 # The version of APIs your extension will receive. Learn more:
 # https://shopify.dev/docs/api/usage/versioning
-api_version = "2025-01"
+api_version = "2025-04"
 
 [[extensions]]
 name = "Featured Products / Upsells"
-handle = "upsell-block"
+handle = "thankyou-upsell"
 type = "ui_extension"
 
-
+  
 # Controls where in Shopify your extension will be injected,
 # and the file that contains your extension’s source code. Learn more:
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
 
-[[extensions.targeting]]
+# Thankyou page block rendering
+[[extensions.targeting]]   
 module = "./src/Checkout.jsx"
-target = "purchase.checkout.block.render"
+target = "purchase.thank-you.block.render"
+export = "thankYouRender"
+
+# Order page block rendering
+[[extensions.targeting]]   
+module = "./src/Checkout.jsx"  
+target = "customer-account.order-status.block.render"
+export = "orderDetailsRender"
 
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.
@@ -35,7 +43,7 @@ api_access = true
 
 [[extensions.metafields]]
 namespace = "settings"
-key = "upsell"
+key = "upsell"  
 [[extensions.metafields]]  
 namespace = "upsellProducts"
 key = "settings"
@@ -50,4 +58,3 @@ key = "settings"
 # type = "single_line_text_field"
 # name = "Banner title"
 # description = "Enter a title for the banner"
-

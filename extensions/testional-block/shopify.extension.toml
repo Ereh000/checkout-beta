@@ -6,7 +6,7 @@
   api_version = "2025-01"
 
   [[extensions]]
-  name = "testional-block"
+  name = "Testimonials"
   handle = "testional-block"
   type = "ui_extension"
 
@@ -15,9 +15,22 @@
   # and the file that contains your extension’s source code. Learn more:
   # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
 
+  # Checkout page block rendering  
   [[extensions.targeting]]
-  module = "./src/Checkout.jsx"
+  module = "./src/Checkout.jsx"  
   target = "purchase.checkout.block.render"
+
+  # Thankyou page block rendering
+  [[extensions.targeting]]   
+  module = "./src/Checkout.jsx"
+  target = "purchase.thank-you.block.render"
+  export = "thankYouRender"
+
+  # Order page block rendering
+  [[extensions.targeting]]   
+  module = "./src/Checkout.jsx"  
+  target = "customer-account.order-status.block.render"
+  export = "orderDetailsRender"
 
   [extensions.capabilities]
   # Gives your extension access to directly query Shopify’s storefront API.
@@ -52,21 +65,21 @@
   # description = "Enter a title for the banner"
 
 
-  [settings]
-    [[settings.fields]]
+  [extensions.settings]
+    [[extensions.settings.fields]]
     key = "layout"
     type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
     name = "Layout Arrangement"
     description = "Choose the layout arrangement for the block."
     default = "vertical"
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "title"
     type = "single_line_text_field"
     name = "Title"
     description = "Enter the title for the section."
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "imageSize"
     type = "number_integer" # Changed from "number" to "number_integer"
     name = "Image Size"
@@ -75,40 +88,40 @@
     min = 1
     max = 1000
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "textAlignment"
     type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
     name = "Section Text Alignment"
     description = "Choose the text alignment for the section."
     default = "center"
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "textSize"
     type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
     name = "Section Text Size"
     description = "Choose the text size for the section."
     default = "large"
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "titleTextSize"
     type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
-    name = "Section Title Text Size"
+    name = "Section Title Text  Size"
     description = "Choose the text size for the section title."
-    default = "none"
+    default = "Add Testimonials or list Badges"  
 
-    [[settings.fields]]
-    key = "imageUrl"
+    [[extensions.settings.fields]]
+    key = "imageUrl"  
     type = "single_line_text_field"
     name = "Image #1 URL"
     description = "Provide the URL for the first image."
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "sectionText"
     type = "multi_line_text_field" # Changed from "textarea" to "multi_line_text_field"
     name = "Section #1 Text"
     description = "Enter the text for the first section."
 
-    [[settings.fields]]
+    [[extensions.settings.fields]]
     key = "sectionTitle"
     type = "single_line_text_field"
     name = "Section #1 Title"

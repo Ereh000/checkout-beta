@@ -6,8 +6,8 @@
 api_version = "2025-04"
 
 [[extensions]]
-name = "Payement Icons"
-handle = "payment-icons"
+name = "Line Item Message"
+handle = "line-item-message"
 type = "ui_extension"
 
 
@@ -16,8 +16,9 @@ type = "ui_extension"
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
 
 [[extensions.targeting]]
-module = "./src/Checkout.jsx"
-target = "purchase.checkout.block.render"
+target = "purchase.checkout.cart-line-item.render-after"
+module = "./src/Checkout.jsx"  
+export = "purchaseCheckoutCartLineItemRenderAfter"
 
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.
@@ -46,37 +47,16 @@ api_access = true
 
 [extensions.settings]
     [[extensions.settings.fields]]
-    key = "banner_title"
+    key = "message_text"
     type = "single_line_text_field"
-    name = "Banner title"
-    description = "Enter a title for the banner"
+    name = "Message Text"
+    description = "Add Message text use"
 
     [[extensions.settings.fields]]
-    key = "image_1_icon"
+    key = "text_tone"
     type = "single_line_text_field"
-    name = "Image #1 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_2_icon"
-    type = "single_line_text_field"
-    name = "Image #2 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_3_icon"
-    type = "single_line_text_field"
-    name = "Image #3 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_4_icon"
-    type = "single_line_text_field"
-    name = "Image #4 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_5_icon"
-    type = "single_line_text_field"
-    name = "Image #5 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
+    name = "Text  Tone"
+    description = "Changes the visual appearance"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"none\", \"accent\", \"subdued\", \"info\", \"success\", \"warning\", \"critical\"]"

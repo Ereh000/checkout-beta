@@ -3,11 +3,11 @@
 
 # The version of APIs your extension will receive. Learn more:
 # https://shopify.dev/docs/api/usage/versioning
-api_version = "2025-01"
+api_version = "2025-04"
 
 [[extensions]]
-name = "Featured Products / Upsells"
-handle = "upsell-block"
+name = "Custom Input"
+handle = "custom-input-field"
 type = "ui_extension"
 
 
@@ -16,8 +16,13 @@ type = "ui_extension"
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
 
 [[extensions.targeting]]
-module = "./src/Checkout.jsx"
+module = "./src/Checkout.jsx"  
 target = "purchase.checkout.block.render"
+
+   [[extensions.targeting]]
+   target = "purchase.checkout.shipping-option-list.render-after"
+   module = "./src/Checkout.jsx"
+   export = "deliveryInstructionsRender"
 
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.
@@ -33,12 +38,12 @@ api_access = true
 # products, customers, and more. Learn more:
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#metafields
 
-[[extensions.metafields]]
-namespace = "settings"
-key = "upsell"
-[[extensions.metafields]]  
-namespace = "upsellProducts"
-key = "settings"
+# [[extensions.metafields]]
+# namespace = "my_namespace"
+# key = "my_key"
+# [[extensions.metafields]]
+# namespace = "my_namespace"
+# key = "my_other_key"
 
 # Defines settings that will be collected from merchants installing
 # your extension. Learn more:
@@ -51,3 +56,31 @@ key = "settings"
 # name = "Banner title"
 # description = "Enter a title for the banner"
 
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "input_label"
+  type = "single_line_text_field"
+  name = "Input Field Label" 
+  description = "The label displayed above the input field."
+  
+  [[extensions.settings.fields]]
+  key = "save_location"
+  type = "single_line_text_field"
+  name = "Save Location"
+    [[extensions.settings.fields.validations]]
+    name = "choices"
+    value = "[\"info\", \"success\", \"warning\", \"critical\"]"
+  
+  [[extensions.settings.fields]]
+  key = "input_type"
+  type = "single_line_text_field"
+  name = "Input Type"
+    [[extensions.settings.fields.validations]]
+    name = "choices"
+    value = "[\"text\", \"dropdown\", \"date_picker\"]" 
+
+  [[extensions.settings.fields]]
+  key = "input_values"
+  type = "single_line_text_field"
+  name = "Input Values"
+  description = "Used to prepopulate fields. Example: Use comma separated list for dropdown options."

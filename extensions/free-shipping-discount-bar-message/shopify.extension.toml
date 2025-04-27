@@ -6,8 +6,8 @@
 api_version = "2025-04"
 
 [[extensions]]
-name = "Payement Icons"
-handle = "payment-icons"
+name = "Free Shipping / Discount Bar Message"
+handle = "free-shippingdiscount-bar-message"
 type = "ui_extension"
 
 
@@ -44,39 +44,28 @@ api_access = true
 # your extension. Learn more:
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#settings-definition
 
+# [extensions.settings]
+# [[extensions.settings.fields]]
+# key = "banner_title"
+# type = "single_line_text_field"
+# name = "Banner title"
+# description = "Enter a title for the banner"
+
 [extensions.settings]
-    [[extensions.settings.fields]]
-    key = "banner_title"
-    type = "single_line_text_field"
-    name = "Banner title"
-    description = "Enter a title for the banner"
+  [[extensions.settings.fields]]
+  key = "freeShippingLimit"  
+  type = "number_integer"
+  name = "Free Shipping Limit" 
+  description = "Enter the subtotal that needs to be met before free shipping / dscount is met"
 
-    [[extensions.settings.fields]]
-    key = "image_1_icon"
-    type = "single_line_text_field"
-    name = "Image #1 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
+  [[extensions.settings.fields]]
+  key = "heading"
+  type = "single_line_text_field"
+  name = "Heading"
+  description = "Enter your heading"
 
-    [[extensions.settings.fields]]
-    key = "image_2_icon"
-    type = "single_line_text_field"
-    name = "Image #2 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_3_icon"
-    type = "single_line_text_field"
-    name = "Image #3 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_4_icon"
-    type = "single_line_text_field"
-    name = "Image #4 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
-
-    [[extensions.settings.fields]]
-    key = "image_5_icon"
-    type = "single_line_text_field"
-    name = "Image #5 Icon"
-    description = "Available options: none, affin-bank, alipay, airtel-money, afterpay, akulaku, amazon, american-express, apple-pay, facebook-pay"
+  [[extensions.settings.fields]]
+  key = "subheading"
+  type = "single_line_text_field"
+  name = "Subheading"
+  description = "Enter your subheading"

@@ -6,22 +6,35 @@
 api_version = "2025-04"
 
 [[extensions]]
-name = "custom-banner"
+name = "Custom Banner"
 handle = "custom-banner"
-type = "ui_extension"
+type = "ui_extension"  
 
 
 # Controls where in Shopify your extension will be injected,
 # and the file that contains your extension’s source code. Learn more:
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
 
+# ---- Checkout Page Block Rendering ----
 [[extensions.targeting]]
 module = "./src/Checkout.jsx"
 target = "purchase.checkout.block.render"
 
+# ---- Thankyou page block rendering ----
+[[extensions.targeting]]   
+module = "./src/Checkout.jsx"
+target = "purchase.thank-you.block.render"  
+export = "thankYouRender"
+
+# ---- Order page block rendering ----
+[[extensions.targeting]]   
+module = "./src/Checkout.jsx"  
+target = "customer-account.order-status.block.render"
+export = "orderDetailsRender"
+
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.
-# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#api-access
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#api-accessj
 api_access = true
 
 # Gives your extension access to make external network calls, using the
@@ -45,20 +58,28 @@ api_access = true
 # https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#settings-definition
 
 [extensions.settings]
-    [[extensions.settings.fields]]
-    key = "banner_title"
-    type = "single_line_text_field"
-    name = "Banner Title"
-    description = "Enter a title for  the banner"
+  [[extensions.settings.fields]]
+  key = "title"
+  type = "single_line_text_field"
+  name = "Banner title"
+  description = "Enter a title for the banner."
 
-    [[extensions.settings.fields]]
-    key = "banner_message"
-    type = "multi_line_text_field"
-    name = "Banner Message"
-    description = "Enter the message to display in the banner"
+  [[extensions.settings.fields]]
+  key = "description"
+  type = "single_line_text_field"
+  name = "Banner description"
+  description = "Enter a description for the banner."
 
-    [[extensions.settings.fields]]
-    key = "show_icon"
-    type = "boolean"
-    name = "Show Info Icon"
-    description = "Display the information icon in the banner"
+  [[extensions.settings.fields]]
+  key = "status"
+  type = "single_line_text_field"
+  name = "Banner status"
+    [[extensions.settings.fields.validations]]
+    name = "choices"
+    value = "[\"info\", \"success\", \"warning\", \"critical\"]"
+
+  [[extensions.settings.fields]]
+  key = "collapsible"
+  type = "boolean"
+  name = "Show collapsible description."
+  description = "Display controls to expand or collapse the banner description."

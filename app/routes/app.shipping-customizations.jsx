@@ -10,14 +10,88 @@ import {
   Text,
   Icon,
   TextContainer,
+  Badge,
+  DataTable,
   // Link,
 } from "@shopify/polaris";
 import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
-import { Link } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
+import prisma from "../db.server"; // Import Prisma client
+import { authenticate } from "../shopify.server"; // For authentication
+import { json } from "@remix-run/node"; // For loader function
+
+
+// --- Add Loader Function ---
+export async function loader({ request }) {
+  const { admin, session } = await authenticate.admin(request);
+
+  // Fetch Shop GraphQL ID in the loader
+  const shopIdResponse = await admin.graphql(
+    `#graphql
+      query shopInfo {
+        shop {
+          id
+        }
+      }`,
+  );
+  const shopIdData = await shopIdResponse.json();
+  const shopGid = shopIdData.data?.shop?.id;
+
+  // const shop = session.shop; // Get shop from session
+
+  // Fetch both types of customizations concurrently
+  const [hideCustomizations, messageCustomizations] = await Promise.all([
+    prisma.shippingCustomization.findMany({
+      where: { shop: shopGid }, // Filter by shop
+      orderBy: { createdAt: "desc" }, // Optional: order by creation date
+    }),
+    prisma.shippingMessage.findMany({
+      where: { shop: shopGid }, // Filter by shop
+      orderBy: { createdAt: "desc" }, // Optional: order by creation date
+    }),
+  ]);
+
+  // Combine data and add a 'type' identifier if not already present in the model
+  // (Using the default value from the schema)
+  const allCustomizations = [...hideCustomizations, ...messageCustomizations];
+
+  return json({ customizations: allCustomizations }); // Return combined data
+}
+// --- End Loader Function ---
 
 export default function PaymentCustomization() {
+  // --- Use loader data ---
+  const { customizations } = useLoaderData();
   // State to control modal visibility
   const [isOpen, setIsOpen] = useState(false);
+
+  // --- Prepare data for DataTable ---
+  const rows = customizations.map((item) => [
+    item.name, // Customization Name
+    item.type, // Type (e.g., "Hide Shipping", "Rename Shipping")
+    // item.shippingMethodToHide, // Target Shipping Method
+    // Display number of conditions using Badge
+    // <Badge
+    //   key={`${item.id}-conditions`}
+    //   status={
+    //     item.conditions && item.conditions.length > 0 ? "success" : "attention"
+    //   }
+    // >
+    //   {item.conditions ? item.conditions.length : 0} Conditions
+    // </Badge>,
+    // new Date(item.createdAt).toLocaleDateString(), // Format date
+    // You might want to add a status field to your models later
+    <Badge key={`${item.id}-status`} tone="success">
+      Active
+    </Badge>,
+    <Button
+      key={`${item.id}-edit`}
+      onClick={() => console.log("Edit clicked")}
+    >
+      Edit
+    </Button>,
+  ]);
+  // --- End Prepare data for DataTable ---
 
   return (
     <Page
@@ -47,17 +121,45 @@ export default function PaymentCustomization() {
       </MediaCard>
 
       <br />
-      <LegacyCard sectioned>
-        <EmptyState
-          heading="No customizations"
-          image="https://cdn.shopify.com/shopifycloud/web/assets/v1/2b13a3a6f21ed6ba.svg"
-        >
-          <p>
-            Create a new customization to start customizing your shipping
-            methods at checkout.
-          </p>
-        </EmptyState>
-      </LegacyCard>
+      {/* --- Conditional Rendering: DataTable or EmptyState --- */}
+      {customizations.length > 0 ? (
+        <LegacyCard>
+          <DataTable
+            columnContentTypes={[
+              "text", // Name
+              "text", // Type
+              // "text", // Shipping Method
+              // "numeric", // Conditions count (using Badge component)
+              // "text", // Created Date
+              "text", // Status (using Badge component)
+              "edit",
+            ]}
+            headings={[
+              "Name",
+              "Type",
+              // "Shipping Method",
+              // "Conditions",
+              // "Created",
+              "Status",
+              "Edit",
+            ]}
+            rows={rows} // Use the prepared rows
+          />
+        </LegacyCard>
+      ) : (
+        <LegacyCard sectioned>
+          <EmptyState
+            heading="No customizations"
+            image="https://cdn.shopify.com/shopifycloud/web/assets/v1/2b13a3a6f21ed6ba.svg"
+          >
+            <p>
+              Create a new customization to start customizing your shipping
+              methods at checkout.
+            </p>
+          </EmptyState>
+        </LegacyCard>
+      )}
+      {/* --- End Conditional Rendering --- */}
 
       {/* Polaris Modal */}
       <div className="shipping_customization_model">
@@ -68,7 +170,10 @@ export default function PaymentCustomization() {
         >
           {/* Option 1 */}
           <Modal.Section>
-            <Link to={'/app/hide-shipping-method'} style={{ textDecoration: "none", color: "#000" }}>
+            <Link
+              to={"/app/hide-shipping-method"}
+              style={{ textDecoration: "none", color: "#000" }}
+            >
               <TextContainer>
                 <div
                   className="flex justify-between items-center"
@@ -94,7 +199,10 @@ export default function PaymentCustomization() {
           </Modal.Section>
           {/* Option 2 */}
           <Modal.Section>
-            <Link to={'/app/shipping-add-message'} style={{ textDecoration: "none", color: "#000" }}>
+            <Link
+              to={"/app/shipping-add-message"}
+              style={{ textDecoration: "none", color: "#000" }}
+            >
               <TextContainer onClick={() => console.log("clicked")}>
                 <div
                   className="flex justify-between items-center"
@@ -177,6 +285,9 @@ export default function PaymentCustomization() {
           </Modal.Section>
         </Modal>
       </div>
+
+      <br />
+      <br />
     </Page>
   );
 }
