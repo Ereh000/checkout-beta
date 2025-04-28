@@ -13,17 +13,56 @@ import {
 
 import {
   AlertCircleIcon,
+  CartUpIcon,
   CartIcon,
   CreditCardSecureIcon,
   DeliveryFilledIcon,
   GiftCardIcon,
+  OrderFulfilledIcon,
   ShareIcon,
+  StoreIcon,
   ToggleOffIcon,
+  AppsIcon,
 } from "@shopify/polaris-icons";
+import { authenticate } from "../shopify.server";
+import { json, useLoaderData } from "@remix-run/react";
+
+export async function loader({ request }) {
+  const { admin, session } = await authenticate.admin(request);
+
+  const response = await admin.graphql(`
+    query GetCheckoutProfile {
+      checkoutProfiles(first: 1, query: "is_published:true") {
+        edges {
+          node {
+            id
+            name
+          }
+        }
+      }
+    }
+  `);
+
+  const data = await response.json();
+  const checkoutProfile = data.data.checkoutProfiles.edges[0].node;
+  console.log("checkoutProfile", checkoutProfile);
+
+  // const checkoutProfileId = checkoutProfile.id;
+  // Extract the numeric ID from the GID
+  const profileId = checkoutProfile.id.split("/").pop();
+
+  return json({
+    checkoutProfileId: profileId,
+    shop: session.shop.split(".myshopify.com")[0], // Get shop name without domain
+  });
+}
+
+// import { Redirect
 
 export default function Index() {
   return (
     <Page>
+      <br />
       <Layout>
         <Grid>
           <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
@@ -54,6 +93,8 @@ export default function Index() {
           </Grid.Cell>
         </Grid>
       </Layout>
+      <br />
+      <br />
     </Page>
   );
 }
@@ -131,7 +172,7 @@ export function PaymentAndShippingCustomizations() {
           </Card>
 
           {/* Order Validations */}
-          <Card>
+          {/* <Card>
             <div
               style={{
                 display: "flex",
@@ -156,9 +197,9 @@ export function PaymentAndShippingCustomizations() {
                   </p>
                 </div>
               </div>
-              <Button variant="primary">Manage</Button> 
+              <Button variant="primary">Comming Soon</Button> 
             </div>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </Card>
@@ -166,6 +207,9 @@ export function PaymentAndShippingCustomizations() {
 }
 
 function ExtensionsSection() {
+  // checkoutProfileId response: id: 'gid://shopify/CheckoutProfile/1314324837',
+  const { checkoutProfileId, shop } = useLoaderData();
+
   return (
     <Card>
       <div>
@@ -211,7 +255,14 @@ function ExtensionsSection() {
                 Custom messages, gift message, trust badges, etc
               </p>
               <br />
-              <Button plain style={{ marginTop: "10px" }}>
+              <Button
+                onClick={() => {
+                  const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=checkout`;
+                  window.open(url, "_blank"); // Opens the URL in a new tab
+                }}
+                plain
+                style={{ marginTop: "10px" }}
+              >
                 Get Started
               </Button>
             </div>
@@ -238,7 +289,7 @@ function ExtensionsSection() {
                   aspectRatio: "1/1",
                 }}
               >
-                <CartIcon />
+                <StoreIcon />
               </div>
               <strong style={{ marginTop: "10px" }}>
                 Thank You Extensions
@@ -253,7 +304,14 @@ function ExtensionsSection() {
                 Custom messages, share social media, contact info, etc
               </p>
               <br />
-              <Button plain style={{ marginTop: "10px" }}>
+              <Button
+                onClick={() => {
+                  const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=thank-you`;
+                  window.open(url, "_blank"); // Opens the URL in a new tab
+                }}
+                plain
+                style={{ marginTop: "10px" }}
+              >
                 Get Started
               </Button>
             </div>
@@ -280,7 +338,7 @@ function ExtensionsSection() {
                   aspectRatio: "1/1",
                 }}
               >
-                <CartIcon />
+                <OrderFulfilledIcon />
               </div>
               <strong style={{ marginTop: "10px" }}>
                 Order Status Extensions
@@ -295,7 +353,14 @@ function ExtensionsSection() {
                 Custom messages, share social media, contact info, etc
               </p>
               <br />
-              <Button plain style={{ marginTop: "10px" }}>
+              <Button
+                plain
+                onClick={() => {
+                  const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=order-status`;
+                  window.open(url, "_blank"); // Opens the URL in a new tab
+                }}
+                style={{ marginTop: "10px" }}
+              >
                 Get Started
               </Button>
             </div>
@@ -322,7 +387,7 @@ function ExtensionsSection() {
                   aspectRatio: "1/1",
                 }}
               >
-                <CartIcon />
+                <CartUpIcon />
               </div>
               <strong style={{ marginTop: "10px" }}>Upsells</strong>
               <p
@@ -335,14 +400,19 @@ function ExtensionsSection() {
                 Offer advanced customizations like upsells
               </p>
               <br />
-              <Button plain style={{ marginTop: "10px" }}>
+              {/* Add the url prop here */}
+              <Button
+                plain
+                url="/app/manage-upsells"
+                style={{ marginTop: "10px" }}
+              >
                 Manage
               </Button>
             </div>
           </Card>
 
           {/* Automatic Product Offer */}
-          <Card>
+          {/* <Card>
             <div
               style={{
                 display: "flex",
@@ -381,10 +451,10 @@ function ExtensionsSection() {
                 Manage
               </Button>
             </div>
-          </Card>
+          </Card> */}
 
           {/* Survey or Form */}
-          <Card>
+          {/* <Card>
             <div
               style={{
                 display: "flex",
@@ -421,7 +491,7 @@ function ExtensionsSection() {
                 Manage
               </Button>
             </div>
-          </Card>
+          </Card> */}
 
           {/* Explore more extension */}
           <Card>
@@ -444,9 +514,9 @@ function ExtensionsSection() {
                   aspectRatio: "1/1",
                 }}
               >
-                <CartIcon />
+                <AppsIcon />
               </div>
-              <strong style={{ marginTop: "10px" }}>Survey or Form</strong>
+              <strong style={{ marginTop: "10px" }}>Explore more extensions</strong>
               <p
                 style={{
                   marginTop: "5px",
@@ -457,7 +527,14 @@ function ExtensionsSection() {
                 Browse more extensions for your store
               </p>
               <br />
-              <Button plain style={{ marginTop: "10px" }}>
+              <Button
+                onClick={() => {
+                  const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=checkout`;
+                  window.open(url, "_blank"); // Opens the URL in a new tab
+                }}
+                plain
+                style={{ marginTop: "10px" }}
+              >
                 See more option
               </Button>
             </div>

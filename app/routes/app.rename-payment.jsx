@@ -122,6 +122,124 @@ export async function action({ request }) {
     );
     const metafieldData = await response.json();
 
+    
+    // --- Fetch & Execute Shopify Functions ---
+    const functionResponse = await admin.graphql(
+      `query {
+            shopifyFunctions(first: 30) {
+              nodes {
+                id
+                title
+                apiType
+                app {
+                  title
+                }
+              }
+            }
+          }`,
+    );
+
+    const shopifyFunctionsData = await functionResponse.json();
+    const functions = shopifyFunctionsData.data?.shopifyFunctions?.nodes;
+    console.log("Functions Found:", functions); // Log found payment functions
+    if (!functions) {
+      console.error("Could not fetch Shopify Functions.");
+      // Decide how to handle this - maybe proceed without creating the customization?
+      // Or return an error. For now, just log it.
+    } else {
+      // Find the specific function by title
+      const hidePaymentFunction = functions.find(
+        (func) => func.title === "changeName-of-paymentMethod",
+      );
+
+      if (hidePaymentFunction) {
+        const functionId = hidePaymentFunction.id;
+        console.log(
+          `Found function 'changeName-of-paymentMethod' with ID: ${functionId}`, // <-- Updated log message
+        );
+
+        // --- Create Payment Customization using the Function ---
+        const paymentCustomizationMutation = await admin.graphql(
+          `#graphql
+              # Use the correct mutation for payment customizations
+              mutation PaymentCustomizationCreate($paymentCustomization: PaymentCustomizationInput!) {
+                paymentCustomizationCreate(paymentCustomization: $paymentCustomization) {
+                  paymentCustomization {
+                    id
+                  }
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }`,
+          {
+            variables: {
+              // Use the correct input type
+              paymentCustomization: {
+                title: customizeName, // Use the name from the form
+                enabled: true,
+                functionId: functionId,
+              },
+            },
+          },
+        );
+
+        const customizationResult = await paymentCustomizationMutation.json();
+
+        if (
+          customizationResult.data?.paymentCustomizationCreate?.userErrors // Check correct path
+            ?.length > 0
+        ) {
+          console.error(
+            "Payment Customization creation errors:", // Updated log message
+            customizationResult.data.paymentCustomizationCreate.userErrors,
+          );
+          // Return these errors to the user
+          return json(
+            {
+              errors:
+                customizationResult.data.paymentCustomizationCreate.userErrors.map(
+                  (e) => e.message,
+                ),
+            },
+            { status: 400 },
+          );
+        } else if (
+          customizationResult.data?.paymentCustomizationCreate // Check correct path
+            ?.paymentCustomization
+        ) {
+          console.log(
+            "Successfully created Payment Customization:", // Updated log message
+            customizationResult.data.paymentCustomizationCreate
+              .paymentCustomization.id,
+          );
+        } else {
+          console.error(
+            "Failed to create Payment Customization:", // Updated log message
+            customizationResult,
+          );
+          // Return a generic error
+          return json(
+            {
+              errors: [
+                "Failed to activate the payment customization function.", // Updated error message
+              ],
+            },
+            { status: 500 },
+          );
+        }
+        // --- End Create Payment Customization ---
+      } else {
+        console.warn(
+          "Function 'hide-shipping-method' not found. Skipping customization creation.",
+        );
+        // Optionally inform the user that the function needs to be deployed/available
+        // return json({ errors: ["The required 'hide-shipping-method' function was not found."] }, { status: 500 });
+      }
+    }
+    // --- Fetch & Execute Shopify Functions Ends ---
+
     // Check if both operations were successful
     if (dbSave && !metafieldData.data.metafieldsSet.userErrors.length) {
       return json({

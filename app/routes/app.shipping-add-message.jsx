@@ -48,21 +48,6 @@ export async function loader({ request }) {
     throw new Response("Could not retrieve shop identifier.", { status: 500 });
   }
 
-  // const fetchFunctions = await admin.graphql(`
-  //   query {
-  //     shopifyFunctions(first: 50) {
-  //       nodes {
-  //         app {
-  //           title
-  //         }
-  //         apiType
-  //         title
-  //         id
-  //       }
-  //     }
-  //   }
-  // `)
-
   const shopIdData = await shopIdResponse.json();
   const shopGid = shopIdData.data?.shop?.id;
 
@@ -207,19 +192,6 @@ export async function action({ request }) {
       );
     }
     // --- End Check ---
-    /// --- Save to Prisma Database ---
-    const prismaResponse = await prisma.shippingMessage.create({
-      data: {
-        // Use the shopGid received from the form data
-        shop: shopGid,
-        type: "Rename Shipping",
-        name: customizeName,
-        shippingMethodToHide: shippingMethod,
-        message: message,
-        conditions: conditions,
-      },
-    });
-    // --- End Save to Prisma ---
 
     /// --- Save to Shopify Shop Metafeild ---
     // Send a GraphQL mutation to update Shopify metafields with the configuration
@@ -267,8 +239,137 @@ export async function action({ request }) {
     const data = await response.json();
     //  --- End Save to Shopify Shop Metafeild ---
 
-    console.log("Prisma data", prismaResponse);
-    console.log("Shopify data", data.data.metafieldsSet.metafields);
+    // --- Fetch & Execute Shopify Functions ---
+    const functionResponse = await admin.graphql(
+      `query {
+            shopifyFunctions(first: 30) {
+              nodes {
+                id
+                title
+                apiType
+                app {
+                  title
+                }
+              }
+            }
+          }`,
+    );
+
+    const shopifyFunctionsData = await functionResponse.json();
+    const functions = shopifyFunctionsData.data?.shopifyFunctions?.nodes;
+    console.log("function", functions);
+    if (!functions) {
+      console.error("Could not fetch Shopify Functions.");
+      // Decide how to handle this - maybe proceed without creating the customization?
+      // Or return an error. For now, just log it.
+    } else {
+      // Find the specific function by title
+      const hideShippingFunction = functions.find(
+        (func) => func.title === "add-message-to-shipping-method",
+      );
+
+      if (hideShippingFunction) {
+        const functionId = hideShippingFunction.id;
+        console.log(
+          `Found function 'hide-shipping-method' with ID: ${functionId}`,
+        );
+
+        // --- Create Delivery Customization using the Function ---
+        const deliveryCustomizationMutation = await admin.graphql(
+          `#graphql
+              mutation DeliveryCustomizationCreate($deliveryCustomization: DeliveryCustomizationInput!) {
+                deliveryCustomizationCreate(deliveryCustomization: $deliveryCustomization) {
+                  deliveryCustomization {
+                    id
+                  }
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }`,
+          {
+            variables: {
+              deliveryCustomization: {
+                title: customizeName, // Use the name from the form
+                enabled: true,
+                functionId: functionId,
+              },
+            },
+          },
+        );
+
+        const customizationResult = await deliveryCustomizationMutation.json();
+
+        if (
+          customizationResult.data?.deliveryCustomizationCreate?.userErrors
+            ?.length > 0
+        ) {
+          console.error(
+            "Delivery Customization creation errors:",
+            customizationResult.data.deliveryCustomizationCreate.userErrors,
+          );
+          // Return these errors to the user
+          return json(
+            {
+              errors:
+                customizationResult.data.deliveryCustomizationCreate.userErrors.map(
+                  (e) => e.message,
+                ),
+            },
+            { status: 400 },
+          );
+        } else if (
+          customizationResult.data?.deliveryCustomizationCreate
+            ?.deliveryCustomization
+        ) {
+          console.log(
+            "Successfully created Delivery Customization:",
+            customizationResult.data.deliveryCustomizationCreate
+              .deliveryCustomization.id,
+          );
+        } else {
+          console.error(
+            "Failed to create Delivery Customization:",
+            customizationResult,
+          );
+          // Return a generic error
+          return json(
+            {
+              errors: [
+                "Failed to activate the shipping customization function.",
+              ],
+            },
+            { status: 500 },
+          );
+        }
+        // --- End Create Delivery Customization ---
+      } else {
+        console.warn(
+          "Function 'hide-shipping-method' not found. Skipping customization creation.",
+        );
+        // Optionally inform the user that the function needs to be deployed/available
+        // return json({ errors: ["The required 'hide-shipping-method' function was not found."] }, { status: 500 });
+      }
+    }
+    // --- Fetch & Execute Shopify Functions Ends ---
+
+    /// --- Save to Prisma Database ---
+    const prismaResponse = await prisma.shippingMessage.create({
+      data: {
+        // Use the shopGid received from the form data
+        shop: shopGid,
+        type: "Rename Shipping",
+        name: customizeName,
+        shippingMethodToHide: shippingMethod,
+        message: message,
+        conditions: conditions,
+      },
+    });
+    // --- End Save to Prisma ---
+
+    console.log("Prisma saved success", prismaResponse);
+    console.log("Shopify meta saved success", data.data.metafieldsSet.metafields);
 
     // Return success JSON instead of redirecting for fetcher
     return json({ success: true, message: "Settings saved successfully." });

@@ -200,8 +200,125 @@ export async function action({ request }) {
         },
       },
     );
-
     const data = await response.json();
+
+    // --- Fetch & Execute Shopify Functions ---
+    const functionResponse = await admin.graphql(
+      `query {
+            shopifyFunctions(first: 30) {
+              nodes {
+                id
+                title
+                apiType
+                app {
+                  title
+                }
+              }
+            }
+          }`,
+    );
+
+    const shopifyFunctionsData = await functionResponse.json();
+    const functions = shopifyFunctionsData.data?.shopifyFunctions?.nodes;
+    console.log("Functions Found:", functions); // Log found payment functions
+    if (!functions) {
+      console.error("Could not fetch Shopify Functions.");
+      // Decide how to handle this - maybe proceed without creating the customization?
+      // Or return an error. For now, just log it.
+    } else {
+      // Find the specific function by title
+      const hidePaymentFunction = functions.find(
+        (func) => func.title === "hide_payment-method-cartTotal",
+      );
+
+      if (hidePaymentFunction) {
+        const functionId = hidePaymentFunction.id;
+        console.log(
+          `Found function 'hide-payment-method' with ID: ${functionId}`, // <-- Updated log message
+        );
+
+        // --- Create Payment Customization using the Function ---
+        const paymentCustomizationMutation = await admin.graphql(
+          `#graphql
+              # Use the correct mutation for payment customizations
+              mutation PaymentCustomizationCreate($paymentCustomization: PaymentCustomizationInput!) {
+                paymentCustomizationCreate(paymentCustomization: $paymentCustomization) {
+                  paymentCustomization {
+                    id
+                  }
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }`,
+          {
+            variables: {
+              // Use the correct input type
+              paymentCustomization: {
+                title: customizeName, // Use the name from the form
+                enabled: true,
+                functionId: functionId,
+              },
+            },
+          },
+        );
+
+        const customizationResult = await paymentCustomizationMutation.json();
+
+        if (
+          customizationResult.data?.paymentCustomizationCreate?.userErrors // Check correct path
+            ?.length > 0
+        ) {
+          console.error(
+            "Payment Customization creation errors:", // Updated log message
+            customizationResult.data.paymentCustomizationCreate.userErrors,
+          );
+          // Return these errors to the user
+          return json(
+            {
+              errors:
+                customizationResult.data.paymentCustomizationCreate.userErrors.map(
+                  (e) => e.message,
+                ),
+            },
+            { status: 400 },
+          );
+        } else if (
+          customizationResult.data?.paymentCustomizationCreate // Check correct path
+            ?.paymentCustomization
+        ) {
+          console.log(
+            "Successfully created Payment Customization:", // Updated log message
+            customizationResult.data.paymentCustomizationCreate
+              .paymentCustomization.id,
+          );
+        } else {
+          console.error(
+            "Failed to create Payment Customization:", // Updated log message
+            customizationResult,
+          );
+          // Return a generic error
+          return json(
+            {
+              errors: [
+                "Failed to activate the payment customization function.", // Updated error message
+              ],
+            },
+            { status: 500 },
+          );
+        }
+        // --- End Create Payment Customization ---
+      } else {
+        console.warn(
+          "Function 'hide-shipping-method' not found. Skipping customization creation.",
+        );
+        // Optionally inform the user that the function needs to be deployed/available
+        // return json({ errors: ["The required 'hide-shipping-method' function was not found."] }, { status: 500 });
+      }
+    }
+    // --- Fetch & Execute Shopify Functions Ends ---
+
     // Return the response data along with the configuration object
     return json(data);
   } catch (error) {
@@ -279,10 +396,10 @@ export function Body({ id, host }) {
           prevConditions.map((c, i) =>
             i === index
               ? {
-                ...c,
-                selectedProducts: selectedProducts.map((p) => p.id),
-                productTitles: selectedProducts.map((p) => p.title),
-              }
+                  ...c,
+                  selectedProducts: selectedProducts.map((p) => p.id),
+                  productTitles: selectedProducts.map((p) => p.title),
+                }
               : c,
           ),
         );
@@ -392,7 +509,8 @@ export function Body({ id, host }) {
         }
         if (
           condition.discountType === "product" &&
-          (!condition.selectedProducts || condition.selectedProducts.length === 0)
+          (!condition.selectedProducts ||
+            condition.selectedProducts.length === 0)
         ) {
           errorMessages.push("At least one product must be selected");
         }
@@ -625,7 +743,13 @@ export function Body({ id, host }) {
                           placeholder="100"
                           type="number"
                           value={condition.amount}
-                          onChange={(value) => handleConditionChange(index, "amount", parseFloat(value))}
+                          onChange={(value) =>
+                            handleConditionChange(
+                              index,
+                              "amount",
+                              parseFloat(value),
+                            )
+                          }
                           style={{ flex: 1 }}
                           name="cartTotal"
                         />
@@ -771,24 +895,32 @@ export function Body({ id, host }) {
             <Box paddingBlockStart="300">
               {customizeName && (
                 <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">Customization Name: </Text>
+                  <Text fontWeight="bold" as="span">
+                    Customization Name:{" "}
+                  </Text>
                   <Text as="span">{customizeName}</Text>
                 </Box>
               )}
 
               {parentValue && (
                 <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">Payment Method: </Text>
+                  <Text fontWeight="bold" as="span">
+                    Payment Method:{" "}
+                  </Text>
                   <Text as="span">{parentValue}</Text>
                 </Box>
               )}
 
               {conditions.map((condition, index) => (
                 <Box key={index} paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="p">Condition {index + 1}:</Text>
+                  <Text fontWeight="bold" as="p">
+                    Condition {index + 1}:
+                  </Text>
 
                   <Box paddingInlineStart="300" paddingBlockEnd="100">
-                    <Text fontWeight="bold" as="span">Type: </Text>
+                    <Text fontWeight="bold" as="span">
+                      Type:{" "}
+                    </Text>
                     <Text as="span">
                       {condition.discountType === "cart_total"
                         ? "Cart Total"
@@ -800,29 +932,39 @@ export function Body({ id, host }) {
 
                   {condition.discountType === "cart_total" && (
                     <Box paddingInlineStart="300" paddingBlockEnd="100">
-                      <Text fontWeight="bold" as="span">Amount: </Text>
+                      <Text fontWeight="bold" as="span">
+                        Amount:{" "}
+                      </Text>
                       <Text as="span">
-                        {condition.greaterOrSmall === "greater_than" ? ">" : "<"} {condition.amount}
+                        {condition.greaterOrSmall === "greater_than"
+                          ? ">"
+                          : "<"}{" "}
+                        {condition.amount}
                       </Text>
                     </Box>
                   )}
 
-                  {condition.discountType === "product" && condition.productTitles && (
-                    <Box paddingInlineStart="300" paddingBlockEnd="100">
-                      <Text fontWeight="bold" as="p">Selected Products:</Text>
-                      <ul style={{ margin: "5px 0", paddingLeft: "20px" }}>
-                        {condition.productTitles.map((title, idx) => (
-                          <li key={idx}>
-                            <Text as="span">{title}</Text>
-                          </li>
-                        ))}
-                      </ul>
-                    </Box>
-                  )}
+                  {condition.discountType === "product" &&
+                    condition.productTitles && (
+                      <Box paddingInlineStart="300" paddingBlockEnd="100">
+                        <Text fontWeight="bold" as="p">
+                          Selected Products:
+                        </Text>
+                        <ul style={{ margin: "5px 0", paddingLeft: "20px" }}>
+                          {condition.productTitles.map((title, idx) => (
+                            <li key={idx}>
+                              <Text as="span">{title}</Text>
+                            </li>
+                          ))}
+                        </ul>
+                      </Box>
+                    )}
 
                   {condition.discountType === "shipping_country" && (
                     <Box paddingInlineStart="300" paddingBlockEnd="100">
-                      <Text fontWeight="bold" as="span">Country: </Text>
+                      <Text fontWeight="bold" as="span">
+                        Country:{" "}
+                      </Text>
                       <Text as="span">{condition.country.toUpperCase()}</Text>
                     </Box>
                   )}

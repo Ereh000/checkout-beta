@@ -20,7 +20,6 @@ import prisma from "../db.server"; // Import Prisma client
 import { authenticate } from "../shopify.server"; // For authentication
 import { json } from "@remix-run/node"; // For loader function
 
-
 // --- Add Loader Function ---
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -69,25 +68,10 @@ export default function PaymentCustomization() {
   const rows = customizations.map((item) => [
     item.name, // Customization Name
     item.type, // Type (e.g., "Hide Shipping", "Rename Shipping")
-    // item.shippingMethodToHide, // Target Shipping Method
-    // Display number of conditions using Badge
-    // <Badge
-    //   key={`${item.id}-conditions`}
-    //   status={
-    //     item.conditions && item.conditions.length > 0 ? "success" : "attention"
-    //   }
-    // >
-    //   {item.conditions ? item.conditions.length : 0} Conditions
-    // </Badge>,
-    // new Date(item.createdAt).toLocaleDateString(), // Format date
-    // You might want to add a status field to your models later
     <Badge key={`${item.id}-status`} tone="success">
       Active
     </Badge>,
-    <Button
-      key={`${item.id}-edit`}
-      onClick={() => console.log("Edit clicked")}
-    >
+    <Button key={`${item.id}-edit`} onClick={() => console.log("Edit clicked")}>
       Edit
     </Button>,
   ]);
@@ -95,7 +79,7 @@ export default function PaymentCustomization() {
 
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }}
+      backAction={{ content: "Settings", url: "/app" }}
       title="Shipping Customizations"
       primaryAction={
         <Button variant="primary" onClick={() => setIsOpen(true)}>

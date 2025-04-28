@@ -24,7 +24,7 @@ export default function PaymentCustomization() {
 
   return (
     <Page
-      backAction={{ content: "Settings", url: "#" }}
+      backAction={{ content: "Settings", url: "/app" }}
       title="Payment Customizations"
       primaryAction={
         <Button variant="primary" onClick={() => setIsOpen(true)}>
