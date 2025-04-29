@@ -3,9 +3,17 @@ import {
   ApiVersion,
   AppDistribution,
   shopifyApp,
+  BillingInterval,
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+
+export const BASIC_PLAN = 'Basic Plan';
+export const PLUS_PLAN = 'Plus Plan';
+export const PLUS_ADVANCED = 'Plus Advanced';
+export const BASIC_PLAN_YEARLY = 'Basic Plan Yearly';
+export const PLUS_PLAN_YEARLY = 'Plus Plan Yearly';
+export const PLUS_ADVANCED_YEARLY = 'Plus Advanced Yearly';
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -14,6 +22,38 @@ const shopify = shopifyApp({
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
+  billing: {
+    [BASIC_PLAN]: {
+      amount: 19.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Every30Days,
+    },
+    [PLUS_PLAN]: {
+      amount: 39.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Every30Days,
+    },
+    [PLUS_ADVANCED]: {
+      amount: 49.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Every30Days,
+    },
+    [BASIC_PLAN_YEARLY]: {
+      amount: 179.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Annual,
+    },
+    [PLUS_PLAN_YEARLY]: {
+      amount: 359.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Annual,
+    },
+    [PLUS_ADVANCED_YEARLY]: {
+      amount: 455.99,
+      currencyCode: 'USD',
+      interval: BillingInterval.Annual,
+    }
+  },
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   future: {
