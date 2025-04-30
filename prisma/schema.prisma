@@ -84,3 +84,20 @@ model ShippingMessage {
   updatedAt            DateTime @updatedAt // Timestamp of last update
   @@index([shop]) // Add an index for faster lookups by shop
 }
+
+
+// Model for Payment Hiding Rules
+model PaymentHide {
+  id            Int      @id @default(autoincrement())
+  shopId        String   // Identifier for the Shopify store
+  customizeName String   // User-defined name for this hiding rule
+  paymentMethod String   // The name of the payment method to potentially hide
+  conditions    Json     // JSON object storing the conditions (cartTotal, products, shippingCountry)
+  status        String   @default("active") // Status of the rule (e.g., "active", "inactive")
+  createdAt     DateTime @default(now())    // Timestamp of creation
+  updatedAt     DateTime @updatedAt        // Timestamp of last update
+
+  @@unique([shopId, customizeName]) // Ensures that a shop cannot have two rules with the same name
+  @@index([shopId])                 // Index for faster lookups based on the shop
+  @@map("payment_hide")             // Explicitly map to the 'payment_hide' table name in the database
+}

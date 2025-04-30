@@ -3,7 +3,7 @@
 client_id = "afe2b2ee97a64d42e3f071170c5962be"
 name = "checkout-deploy-2"
 handle = "checkout-deploy-2"
-application_url = "https://conferencing-boulevard-clinic-saturn.trycloudflare.com"
+application_url = "https://mf-cooler-technologies-portfolio.trycloudflare.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "write_delivery_customizations,write_discounts,write_payment_customizat
 
 [auth]
 redirect_urls = [
-  "https://conferencing-boulevard-clinic-saturn.trycloudflare.com/auth/callback",
-  "https://conferencing-boulevard-clinic-saturn.trycloudflare.com/auth/shopify/callback",
-  "https://conferencing-boulevard-clinic-saturn.trycloudflare.com/api/auth/callback"
+  "https://mf-cooler-technologies-portfolio.trycloudflare.com/auth/callback",
+  "https://mf-cooler-technologies-portfolio.trycloudflare.com/auth/shopify/callback",
+  "https://mf-cooler-technologies-portfolio.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

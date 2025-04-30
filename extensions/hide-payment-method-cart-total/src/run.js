@@ -58,10 +58,13 @@ export function run(input) {
       metaCartTotal.amount && parseFloat(metaCartTotal.amount); // Min cart total
     const cartTotalComparison = metaCartTotal.greaterOrSmall || "greater_than"; // Cart total comparison
 
-    const EXCLUDED_PRODUCT_IDS = [
-      "gid://shopify/ProductVariant/46322014617839",
-      "gid://shopify/ProductVariant/46322014617839",
-    ];
+    // const EXCLUDED_PRODUCT_IDS = [
+    //   "gid://shopify/ProductVariant/46322014617839",
+    //   "gid://shopify/ProductVariant/46322014617839",
+    // ];
+    // Use product IDs from the metafield configuration
+    const EXCLUDED_PRODUCT_IDS = metaProducts.products || []; // Default to empty array if not provided
+    console.log("EXCLUDED_PRODUCT_IDS", EXCLUDED_PRODUCT_IDS); // Log excluded product
     const productsComparison = metaProducts.greaterOrSmall || "is";  // Product comparison
 
     const EXCLUDED_COUNTRIES = metaShippingCountry.country
@@ -86,17 +89,25 @@ export function run(input) {
       productCondition = input.cart.lines
         .filter((line) => line.merchandise.__typename === "ProductVariant") // Filter to product variants
         .map((line) => ({
-          productVariant: {
-            id: line.merchandise.id,
-          },
+          // Access the parent product ID
+          productId: line.merchandise.product.id,
         }))
-        .some((line) => EXCLUDED_PRODUCT_IDS.includes(line.productVariant.id)); // Check if excluded product
+        // Check if any cart line's product ID is in the excluded list
+        .some((line) => EXCLUDED_PRODUCT_IDS.includes(line.productId));
+
+      // Optional: Keep logging for debugging if needed
+      const cartLineProductIds = input.cart.lines
+        .filter((line) => line.merchandise.__typename === "ProductVariant") // Filter to product variants
+        .map((line) => {
+          console.log(`Product ID: ${line.merchandise.product.id}`);
+          return line.merchandise.id; // Return line
+        })
+      console.log("cartLineId is", cartLineProductIds); // Log product condition
     } else if (productsComparison === "is_not") {
       productCondition = !input.cart.lines
         .filter((line) => line.merchandise.__typename === "ProductVariant")
-        .some((line) =>
-          EXCLUDED_PRODUCT_IDS.includes(line.merchandise.product.id),
-        );
+        // Ensure we are accessing the correct ID property here as well
+        .some((line) => EXCLUDED_PRODUCT_IDS.includes(line.merchandise.id));
     }
 
     // Condition 3: Shipping country check
@@ -114,25 +125,25 @@ export function run(input) {
           EXCLUDED_COUNTRIES.includes(group.deliveryAddress.countryCode),
       );
     }
-    // console.log(
-    //   "Conditions:",
-    //   "totalCondition",
-    //   totalCondition,
-    //   "productCondition",
-    //   productCondition,
-    //   "countryCondition",
-    //   countryCondition,
-    //   "MIN_CART_TOTAL",
-    //   MIN_CART_TOTAL,
-    //   "paymentMethod",
-    //   paymentMethod,
-    // );
+    console.log(
+      "Conditions:",
+      "totalCondition",
+      totalCondition,
+      "productCondition",
+      productCondition,
+      "countryCondition",
+      countryCondition,
+      "MIN_CART_TOTAL",
+      MIN_CART_TOTAL,
+      "paymentMethod",
+      paymentMethod,
+    );
 
     const shouldHideCOD =
       totalCondition || countryCondition || productCondition; // Hide COD if any condition met
 
     if (!shouldHideCOD) {
-      // console.log("No conditions met to hide the payment method.");
+      console.log("No conditions met to hide the payment method.");
       return NO_CHANGES; // No changes if no conditions met
     }
 
@@ -155,7 +166,7 @@ export function run(input) {
         },
       ],
     };
-    
+
   } catch (error) { // Catch errors
     console.error("Error while create Hide Payment Method"); // Log error
     return NO_CHANGES; // Return no changes on error

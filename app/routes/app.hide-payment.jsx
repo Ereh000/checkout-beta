@@ -10,8 +10,6 @@ import {
   Box,
   Grid,
   Autocomplete,
-  Listbox,
-  Checkbox,
   Banner,
 } from "@shopify/polaris";
 
@@ -19,7 +17,7 @@ import {
 import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
 
 // Import React hooks and utilities
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // Import authentication and API utility functions from shopify.server
 import { authenticate } from "../shopify.server";
@@ -59,274 +57,6 @@ export async function loader({ request }) {
   }
 }
 
-// Action function to handle form submissions and update Shopify metafields
-// Action function to handle form submissions and update Shopify metafields
-export async function action({ request }) {
-  const { admin } = await authenticate.admin(request);
-
-  // Extract form data submitted via POST request
-  const formData = await request.formData();
-  console.log("formData->", formData);
-
-  // Parse individual form fields
-  // Get the shop ID and ensure it's properly formatted
-  const shopId = formData.get("id");
-  if (!shopId) {
-    return json({ error: "Shop ID is required" }, { status: 400 });
-  }
-  const customizeName = formData.get("customizeName");
-  const paymentMethod = formData.get("paymentMethod");
-
-  // Extract all conditions dynamically from the submitted form data
-  const conditionTypes = formData.getAll("conditionType");
-  const greaterSmaller = formData.getAll("greaterSmaller");
-  const cartTotals = formData.get("cartTotal");
-  const selectedProducts = formData.getAll("selectedProducts");
-  const countries = formData.get("country");
-
-  // Initialize arrays for different types of conditions
-  const cartTotalConditions = [];
-  const productConditions = [];
-  const shippingCountryConditions = [];
-
-  // Check for duplicate conditions
-  const uniqueConditions = new Set(conditionTypes);
-  if (uniqueConditions.size !== conditionTypes.length) {
-    return json(
-      {
-        error: "Duplicate conditions are not allowed",
-        userErrors: [
-          {
-            field: "conditions",
-            message: "Each condition type must be unique",
-          },
-        ],
-      },
-      { status: 400 },
-    );
-  }
-
-  // Categorize conditions based on their type
-  for (let i = 0; i < conditionTypes.length; i++) {
-    const conditionType = conditionTypes[i];
-    const greaterOrSmall = greaterSmaller[i];
-    const amount = Number(cartTotals) || 0;
-    const products = selectedProducts[i] ? selectedProducts[i].split(",") : [];
-    const country = countries;
-
-    // Assign conditions to respective categories
-    switch (conditionType) {
-      case "product":
-        productConditions.push({
-          greaterOrSmall,
-          products,
-        });
-        break;
-      case "cart_total":
-        cartTotalConditions.push({
-          greaterOrSmall,
-          amount,
-        });
-        break;
-      case "shipping_country":
-        shippingCountryConditions.push({
-          greaterOrSmall,
-          country,
-        });
-        break;
-      default:
-        console.warn(`Unknown condition type: ${conditionType}`);
-        break;
-    }
-  }
-
-  // Construct the configuration object with categorized conditions
-  const config = JSON.stringify({
-    shopId: shopId,
-    customizeName: customizeName,
-    paymentMethod: paymentMethod,
-    conditions: {
-      cartTotal: cartTotalConditions,
-      products: productConditions,
-      shippingCountry: shippingCountryConditions,
-    },
-  });
-
-  const configJson = {
-    shopId: shopId,
-    customizeName: customizeName,
-    paymentMethod: paymentMethod,
-    conditions: {
-      cartTotal: cartTotalConditions,
-      products: productConditions,
-      shippingCountry: shippingCountryConditions,
-    },
-  };
-
-  console.log("configJson:", configJson);
-  console.log("condition.products:", configJson.conditions.products);
-
-  try {
-    // Send a GraphQL mutation to update Shopify metafields with the configuration
-    const response = await admin.graphql(
-      `#graphql
-      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields {
-            key
-            namespace
-            value
-            createdAt
-            updatedAt
-          }
-          userErrors {
-            field
-            message
-            code
-          }
-        }
-      }`,
-      {
-        variables: {
-          metafields: [
-            {
-              key: "hide_payment",
-              namespace: "cart",
-              ownerId: shopId,
-              type: "json",
-              value: JSON.stringify(configJson),
-            },
-          ],
-        },
-      },
-    );
-    const data = await response.json();
-
-    // --- Fetch & Execute Shopify Functions ---
-    const functionResponse = await admin.graphql(
-      `query {
-            shopifyFunctions(first: 30) {
-              nodes {
-                id
-                title
-                apiType
-                app {
-                  title
-                }
-              }
-            }
-          }`,
-    );
-
-    const shopifyFunctionsData = await functionResponse.json();
-    const functions = shopifyFunctionsData.data?.shopifyFunctions?.nodes;
-    console.log("Functions Found:", functions); // Log found payment functions
-    if (!functions) {
-      console.error("Could not fetch Shopify Functions.");
-      // Decide how to handle this - maybe proceed without creating the customization?
-      // Or return an error. For now, just log it.
-    } else {
-      // Find the specific function by title
-      const hidePaymentFunction = functions.find(
-        (func) => func.title === "hide_payment-method-cartTotal",
-      );
-
-      if (hidePaymentFunction) {
-        const functionId = hidePaymentFunction.id;
-        console.log(
-          `Found function 'hide-payment-method' with ID: ${functionId}`, // <-- Updated log message
-        );
-
-        // --- Create Payment Customization using the Function ---
-        const paymentCustomizationMutation = await admin.graphql(
-          `#graphql
-              # Use the correct mutation for payment customizations
-              mutation PaymentCustomizationCreate($paymentCustomization: PaymentCustomizationInput!) {
-                paymentCustomizationCreate(paymentCustomization: $paymentCustomization) {
-                  paymentCustomization {
-                    id
-                  }
-                  userErrors {
-                    field
-                    message
-                  }
-                }
-              }`,
-          {
-            variables: {
-              // Use the correct input type
-              paymentCustomization: {
-                title: customizeName, // Use the name from the form
-                enabled: true,
-                functionId: functionId,
-              },
-            },
-          },
-        );
-
-        const customizationResult = await paymentCustomizationMutation.json();
-
-        if (
-          customizationResult.data?.paymentCustomizationCreate?.userErrors // Check correct path
-            ?.length > 0
-        ) {
-          console.error(
-            "Payment Customization creation errors:", // Updated log message
-            customizationResult.data.paymentCustomizationCreate.userErrors,
-          );
-          // Return these errors to the user
-          return json(
-            {
-              errors:
-                customizationResult.data.paymentCustomizationCreate.userErrors.map(
-                  (e) => e.message,
-                ),
-            },
-            { status: 400 },
-          );
-        } else if (
-          customizationResult.data?.paymentCustomizationCreate // Check correct path
-            ?.paymentCustomization
-        ) {
-          console.log(
-            "Successfully created Payment Customization:", // Updated log message
-            customizationResult.data.paymentCustomizationCreate
-              .paymentCustomization.id,
-          );
-        } else {
-          console.error(
-            "Failed to create Payment Customization:", // Updated log message
-            customizationResult,
-          );
-          // Return a generic error
-          return json(
-            {
-              errors: [
-                "Failed to activate the payment customization function.", // Updated error message
-              ],
-            },
-            { status: 500 },
-          );
-        }
-        // --- End Create Payment Customization ---
-      } else {
-        console.warn(
-          "Function 'hide-shipping-method' not found. Skipping customization creation.",
-        );
-        // Optionally inform the user that the function needs to be deployed/available
-        // return json({ errors: ["The required 'hide-shipping-method' function was not found."] }, { status: 500 });
-      }
-    }
-    // --- Fetch & Execute Shopify Functions Ends ---
-
-    // Return the response data along with the configuration object
-    return json(data);
-  } catch (error) {
-    // Handle errors by returning an error response
-    return json({ error: error.message }, { status: 500 });
-  }
-}
-
 // Main component rendering the page
 export default function CustomizationSection() {
   const { id, host } = useLoaderData(); // Fetch shop ID from loader data
@@ -346,8 +76,6 @@ export default function CustomizationSection() {
 
 // Component responsible for rendering the form fields and interactions
 export function Body({ id, host }) {
-  // const { host } = useLoaderData(); // Fetch host information from loader data
-
   const [alertMessage, setAlertMessage] = useState(null); // Add new state for alert messages
   const [parentValue, setParentValue] = useState(""); // Parent value state
   const [customizeName, setCustomizeName] = useState(""); // Customization name state
@@ -356,8 +84,6 @@ export function Body({ id, host }) {
   };
 
   // Modal logic for selecting products
-  // const [modalActive, setModalActive] = useState(false);
-  // const [selectedProducts, setSelectedProducts] = useState([]);
   const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
 
   // State to manage the list of conditions
@@ -542,13 +268,14 @@ export function Body({ id, host }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
     // Use only validateForm for all validations
     if (!validateForm()) {
       setIsSubmitting(false);
       return;
     }
+
+    setIsSubmitting(true);
 
     // Prepare form data
     const formData = new FormData();
@@ -571,39 +298,80 @@ export function Body({ id, host }) {
       }
     });
 
-    try {
-      await fetcher.submit(formData, {
-        method: "POST",
-        action: ".",
-      });
+    fetcher.submit(formData, {
+      method: "POST",
+      action: "/api/payments/hide",
+    });
+  };
 
-      if (fetcher.data?.error) {
+  // useEffect to handle fetcher state changes (loading and success/error messages)
+  useEffect(() => {
+    // Check if the fetcher is idle (finished submitting) and has data
+    if (fetcher.state === "idle" && fetcher.data) {
+      setIsSubmitting(false); // Stop loading state
+
+      if (fetcher.data.success) {
+        setAlertMessage({
+          status: "success",
+          // Use the message from the backend if available
+          message: fetcher.data.message || "Settings saved successfully!",
+        });
+        // Optionally reset form fields here if needed
+      } else if (
+        fetcher.data.errors ||
+        fetcher.data.error ||
+        fetcher.data.userErrors
+      ) {
+        // Handle different possible error structures from the backend
+        let errorContent = "Failed to save settings.";
+        if (fetcher.data.errors && Array.isArray(fetcher.data.errors)) {
+          errorContent = (
+            <ul style={{ margin: 0, paddingLeft: "20px" }}>
+              {fetcher.data.errors.map((error, index) => (
+                <li key={index}>
+                  {typeof error === "string" ? error : JSON.stringify(error)}
+                </li>
+              ))}
+            </ul>
+          );
+        } else if (fetcher.data.error) {
+          errorContent = fetcher.data.error;
+        } else if (
+          fetcher.data.userErrors &&
+          Array.isArray(fetcher.data.userErrors)
+        ) {
+          errorContent = (
+            <ul style={{ margin: 0, paddingLeft: "20px" }}>
+              {fetcher.data.userErrors.map((error, index) => (
+                <li key={index}>{error.message}</li> // Assuming userErrors have a 'message' field
+              ))}
+            </ul>
+          );
+        }
         setAlertMessage({
           status: "critical",
-          message: fetcher.data.error,
+          message: errorContent,
         });
-        setIsSubmitting(false);
-        return;
+      } else {
+        // Handle unexpected response structure
+        setAlertMessage({
+          status: "critical",
+          message: "An unexpected response was received from the server.",
+        });
       }
-
-      setAlertMessage({
-        status: "success",
-        message: "Settings saved successfully!",
-      });
-    } catch (error) {
-      console.error("Submission error:", error);
-      setAlertMessage({
-        status: "critical",
-        message: error.message || "Failed to save. Please try again.",
-      });
-    } finally {
+    } else if (fetcher.state === "submitting" || fetcher.state === "loading") {
+      // Ensure loading state is active while submitting/loading
+      setIsSubmitting(true);
+    } else if (fetcher.state === "idle" && !fetcher.data) {
+      // Handle cases where submission finishes without data (e.g., navigation interrupt)
       setIsSubmitting(false);
     }
-  };
+  }, [fetcher.state, fetcher.data]); // Dependencies for the effect
 
   return (
     <Grid>
       <Grid.Cell columnSpan={{ md: 12, lg: 12, xl: 12 }}>
+        {/* Alert Banner rendering (keep as is) */}
         {alertMessage && (
           <Banner
             tone={alertMessage.status === "success" ? "success" : "critical"}
@@ -749,7 +517,7 @@ export function Body({ id, host }) {
                               "amount",
                               parseFloat(value),
                             )
-                          }
+                          }  
                           style={{ flex: 1 }}
                           name="cartTotal"
                         />
@@ -872,7 +640,7 @@ export function Body({ id, host }) {
                   submit
                   variant="primary"
                   fullWidth
-                  loading={isSubmitting}
+                  loading={isSubmitting} // Use isSubmitting state here
                 >
                   Submit
                 </Button>

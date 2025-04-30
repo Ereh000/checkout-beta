@@ -30,7 +30,7 @@ export default function App() {
         <Link to="/app/shipping-customizations">Shipping Customizations</Link>
         <Link to="/app/manage-upsell">Upsells</Link>
         <Link to="/app/subscription-manage">Manage Subscription</Link>  
-        {/* <Link to="/app/additional">Additional</Link> */}
+        <Link to="/app/additional">Additional</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

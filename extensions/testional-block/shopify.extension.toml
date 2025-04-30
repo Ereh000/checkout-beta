@@ -65,64 +65,49 @@
   # description = "Enter a title for the banner"
 
 
-  [extensions.settings]
-    [[extensions.settings.fields]]
-    key = "layout"
-    type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
-    name = "Layout Arrangement"
-    description = "Choose the layout arrangement for the block."
-    default = "vertical"
 
+[extensions.settings]
     [[extensions.settings.fields]]
     key = "title"
     type = "single_line_text_field"
     name = "Title"
-    description = "Enter the title for the section."
+    description = "Enter a title for the list"
 
     [[extensions.settings.fields]]
     key = "imageSize"
-    type = "number_integer" # Changed from "number" to "number_integer"
+    type = "number_integer"
     name = "Image Size"
-    description = "Set the size of the image."
+    description = "Select a value between 1 and 1000 | Default is 100"
     default = 100
     min = 1
-    max = 1000
+    max = 400
 
-    [[extensions.settings.fields]]
-    key = "textAlignment"
-    type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
-    name = "Section Text Alignment"
-    description = "Choose the text alignment for the section."
-    default = "center"
+    # [[extensions.settings.fields]]
+    # key = "textAlignment"
+    # type = "single_line_text_field"
+    # name = "Section Text Alignment"
+    # description = "Default: Center" 
+    #     [[extensions.settings.fields.validations]]
+    #     name = "choices"
+     #    value = "[\"start\", \"center\", \"end\"]"
 
     [[extensions.settings.fields]]
     key = "textSize"
-    type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
+    type = "single_line_text_field"
     name = "Section Text Size"
-    description = "Choose the text size for the section."
-    default = "large"
+    description = "Choose the text size for the section"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"none\", \"small\", \"medium\", \"large\"]"
 
     [[extensions.settings.fields]]
-    key = "titleTextSize"
-    type = "single_line_text_field" # Changed from "select" to "single_line_text_field"
-    name = "Section Title Text  Size"
-    description = "Choose the text size for the section title."
-    default = "Add Testimonials or list Badges"  
-
-    [[extensions.settings.fields]]
-    key = "imageUrl"  
+    key = "image_1_url"
     type = "single_line_text_field"
-    name = "Image #1 URL"
-    description = "Provide the URL for the first image."
+    name = "Image #1 Url"
+    description = "Enter an image url to load a custom image"
 
     [[extensions.settings.fields]]
-    key = "sectionText"
-    type = "multi_line_text_field" # Changed from "textarea" to "multi_line_text_field"
+    key = "section_1_text"
+    type = "multi_line_text_field"
     name = "Section #1 Text"
-    description = "Enter the text for the first section."
-
-    [[extensions.settings.fields]]
-    key = "sectionTitle"
-    type = "single_line_text_field"
-    name = "Section #1 Title"
-    description = "Enter the title for the first section."
+    description = "Enter the text for the first section"

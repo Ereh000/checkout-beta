@@ -165,7 +165,7 @@ export function PaymentAndShippingCustomizations() {
                   </p>
                 </div>
               </div>
-              <Button url="/app/shipping-customization" variant="primary">
+              <Button url="/app/shipping-customizations" variant="primary">
                 Manage
               </Button>
             </div>
@@ -403,9 +403,9 @@ function ExtensionsSection() {
               {/* Add the url prop here */}
               <Button
                 plain
-                url="/app/manage-upsells"
+                url="/app/manage-upsell"
                 style={{ marginTop: "10px" }}
-              >
+              >  
                 Manage
               </Button>
             </div>

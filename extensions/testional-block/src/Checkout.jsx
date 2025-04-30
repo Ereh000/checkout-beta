@@ -1,11 +1,12 @@
 import {
   reactExtension,
-  InlineLayout,
   View,
   useSettings,
   Image,
   Heading,
-  BlockSpacer,
+  Text,
+  InlineLayout,
+  BlockStack,
 } from "@shopify/ui-extensions-react/checkout";
 
 // --------------------- Checkout Page Block Rendering -------------------------------
@@ -28,42 +29,70 @@ const orderDetailsRender = reactExtension(
 export { orderDetailsRender };
 
 function Extension() {
-  const settings = useSettings();
-  console.log("settings", settings);
+  const {
+    title,
+    imageSize,
+    textAlignment,
+    textSize,
+    image_1_url,
+    section_1_text,
+  } = useSettings();
+
+  console.log(
+    "title",
+    title,
+    "imagesize",
+    imageSize,
+    "textSize",
+    textSize,
+    "image_1_url",
+    image_1_url,
+    "section_1_text",
+    section_1_text,
+  ); // Add this line for debugging
+  // Convert imageSize to a string with 'px' for styling
+  const imageSizeStyle = `${imageSize || 120}px`;
 
   return (
-    <View>
-      <BlockSpacer spacing="loose" />
-      {settings.title ? (
-        <Heading>{settings.title}</Heading>
-      ) : (
-        <Heading>Add Testimonials Or List Badges</Heading>
-      )}
+    <BlockStack border="base" cornerRadius="base" padding="base">
+      {/* <BlockSpacer spacing="loose" /> */}
+      <View inlineAlignment={"start"}>
+        <Heading>{title || "Add Testimonials Or List Badges"}</Heading>
+      </View>
+
       {/* first block */}
-      <BlockSpacer spacing="loose" />
-      <InlineLayout inlineAlignment="center" columns={["17%", "fill"]}>
-        <View padding="">
-          <Image source="https://cdn.shopify.com/s/files/1/0669/9591/3009/files/eco-checkout.png?v=1702968669" />
-        </View>
+      {/* <BlockSpacer spacing="loose" />  */}
+      <InlineLayout
+        columns={[`${imageSizeStyle}`, "10px", "fill"]}
+        inlineAlignment={textAlignment || "end"}
+        blockAlignment="center"
+      >
         <View padding="base">
-          <BlockSpacer spacing="loose" />
-          We have a 30-day return policy, which means you have 30 days after
-          receiving your item to request a return.
+          <Image
+            source={
+              image_1_url
+                ? image_1_url
+                : "https://cdn.shopify.com/s/files/1/0669/9591/3009/files/eco-checkout.png?v=1702968669"
+            }
+            // fit="cover"
+            // aspectRatio={1}
+            // width={imageSizeStyle}
+            // height={imageSizeStyle}
+          />
+        </View>
+        
+        <View inlineAlignment={textAlignment || "left"}>
+          {/* <BlockSpacer spacing="loose" /> */}
+          <BlockStack>
+            <Heading>{"Easy & Return"}</Heading>
+            <Text size={textSize || "none"}>
+              {section_1_text ||
+                "We have a 30-day return policy, which means you have 30 days after receiving your item to request a return."}
+            </Text>
+          </BlockStack>  
         </View>
       </InlineLayout>
-      {/* second block */}
-      {/* <BlockSpacer spacing="loose" />
-      <InlineLayout inlineAlignment="center" columns={["17%", "fill"]}>
-        <View padding="">
-          <Image source="https://cdn.shopify.com/s/files/1/0669/9591/3009/files/Review_checkout.png?v=1702968902" />
-        </View>
-        <View inlineAlignment="center" padding="base">
-          <BlockSpacer spacing="loose" />
-          We have a 30-day return policy, which means you have 30 days after
-          receiving your item to request a return.
-        </View>
-      </InlineLayout>
-      <BlockSpacer spacing="loose" /> */}
-    </View>
+      {/* <BlockSpacer spacing="loose" /> */}
+    </BlockStack>
   );
 }
