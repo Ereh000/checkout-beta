@@ -115,11 +115,15 @@ export default function MainSubscriptionManage() {
   } = planConstants || {};
 
   console.log("Active Plan:", activePlan);
+  const activePlanMain = activePlan;
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  // const fetcher = useFetcher();
   const upgradeFetcher = useFetcher(); // Rename existing fetcher for clarity
   const cancelFetcher = useFetcher(); // Add a new fetcher for cancellation
-  const isUpgrading = upgradeFetcher.state !== "idle";
+
+  // const isLoading = fetcher.state !== "idle";
+  const isLoading = upgradeFetcher.state !== "idle";
   const isCancelling = cancelFetcher.state !== "idle";
 
   const handleTabChange = useCallback(
@@ -195,7 +199,7 @@ export default function MainSubscriptionManage() {
   const yearlyTotalPrices = prices.yearly;
 
   const handleSubscribe = (plan) => {
-    upgradeFetcher.submit( // Use the upgradeFetcher
+    upgradeFetcher.submit(
       {
         plan,
         billingType: selectedBilling,
@@ -204,12 +208,13 @@ export default function MainSubscriptionManage() {
     );
   };
 
-  // Add a handler for cancellation
-  const handleCancelSubscription = () => {
-    // You might want to add a confirmation dialog here
+  const handleCancel = (plan) => {
     cancelFetcher.submit(
-      {}, // No specific data needed, the action will find the active plan
-      { method: "post", action: "/api/cancel-subscription" }
+      {
+        plan,
+        billingType: selectedBilling,
+      },
+      { method: "post", action: "/api/cancel-subscription" },
     );
   };
 
@@ -229,6 +234,8 @@ export default function MainSubscriptionManage() {
 
     return activePlan === planMapping[planName];
   };
+
+  // console.log("isPlanActive);
 
   // Get human-readable plan name for the banner
   const getReadablePlanName = () => {
@@ -331,6 +338,10 @@ export default function MainSubscriptionManage() {
     );
   };
 
+  // const RenderCancelBanner = () => {
+  //   setTimeout(() => {}, 5000);
+  // };
+
   return (
     <Page title="Manage Subscription">
       {activePlan && (
@@ -339,35 +350,33 @@ export default function MainSubscriptionManage() {
             title={`You are currently subscribed to the ${getReadablePlanName()}`}
             tone="success"
           >
-            <BlockStack gap="200"> {/* Use BlockStack for vertical spacing */}
-              <p>
-                You can upgrade your plan at any time to access more features.s
-              </p>
-              {/* Add Cancel Button Here */}
-              <Box> {/* Wrap button for layout control if needed */}
-                <Button 
-                  onClick={handleCancelSubscription}
-                  loading={isCancelling}
-                  disabled={isCancelling || isUpgrading} // Disable if any action is in progress
-                  destructive // Use destructive style for cancellation
-                >
-                  Cancel Subscription
-                </Button>
-              </Box>
-              {/* Display cancellation success/error message */}
-              {cancelFetcher.data?.success === false && (
-                 <Banner title="Cancellation Failed" tone="critical">
-                   <p>{cancelFetcher.data.error || "An unknown error occurred."}</p>
-                 </Banner>
-              )}
-               {/* Optionally show a success message, though the page might reload or banner disappear */}
-               {cancelFetcher.data?.success === true && (
-                 <Banner title="Subscription Cancelled" tone="success">
-                   <p>Your subscription has been cancelled successfully.</p>
-                 </Banner>
-               )}
-            </BlockStack>
+            <p>
+              You can upgrade your plan at any time to access more features.
+            </p>
+            {/* Add Cancel Button Here */}
+            <div style={{ marginTop: "10px" }}>
+              <Button
+                onClick={() => handleCancel(activePlanMain)}
+                loading={isCancelling}
+                disabled={isCancelling} // Disable if any action is in progress
+                variant="primary"
+              >
+                Cancel Subscription
+              </Button>
+            </div>
           </Banner>
+          {/* Display cancellation success/error message */}
+
+          {cancelFetcher.data?.success === false && (
+            <Banner title="Cancellation Failed" tone="critical">
+              <p>{cancelFetcher.data.error || "An unknown error occurred."}</p>
+            </Banner>
+          )}
+          {cancelFetcher.data?.success === true && (
+            <Banner title="Subscription Cancelled" tone="success">
+              <p>Your subscription has been cancelled successfully.</p>
+            </Banner>
+          )}
           <br />
         </>
       )}
@@ -427,17 +436,13 @@ export default function MainSubscriptionManage() {
                   variant="primary"
                   size="large"
                   loading={
-                    isUpgrading && // Use isUpgrading
+                    isLoading &&
                     (upgradeFetcher.formData?.get("plan") === "basic" ||
                       upgradeFetcher.formData?.get("plan") === "basicYearly")
                   }
-                  disabled={
-                    isPlanActive("basic") || isPlanActive("basicYearly") || isCancelling || isUpgrading // Also disable if cancelling/upgrading
-                  }
+                  disabled={isPlanActive("basic")}
                 >
-                  {isPlanActive("basic") || isPlanActive("basicYearly")
-                    ? "Current Plan"
-                    : "Try For Free"}
+                  {isPlanActive("basic") ? "Current Plan" : "Try For Free"}
                 </Button>
               </div>
               <Divider />
@@ -486,11 +491,11 @@ export default function MainSubscriptionManage() {
                   variant="primary"
                   size="large"
                   loading={
-                    isUpgrading && // Use isUpgrading
+                    isLoading &&
                     (upgradeFetcher.formData?.get("plan") === "plus" ||
                       upgradeFetcher.formData?.get("plan") === "plusYearly")
                   }
-                  disabled={isPlanActive("plus") || isPlanActive("plusYearly") || isCancelling || isUpgrading} // Also disable if cancelling/upgrading
+                  disabled={isPlanActive("plus") || isPlanActive("plusYearly")}
                 >
                   {/* Corrected: Check for 'plus' or 'plusYearly' */}
                   {isPlanActive("plus") || isPlanActive("plusYearly")
@@ -554,24 +559,32 @@ export default function MainSubscriptionManage() {
                 <Button
                   onClick={() =>
                     handleSubscribe(
-                      selectedTabIndex === 0 ? "plusAdvanced" : "plusAdvancedYearly",
+                      selectedTabIndex === 0
+                        ? "plusAdvanced"
+                        : "plusAdvancedYearly",
                     )
                   }
                   variant="primary"
                   size="large"
                   loading={
-                    isUpgrading && // Use isUpgrading
+                    isLoading &&
                     (upgradeFetcher.formData?.get("plan") === "plusAdvanced" ||
-                      upgradeFetcher.formData?.get("plan") === "plusAdvancedYearly")
+                      upgradeFetcher.formData?.get("plan") ===
+                        "plusAdvancedYearly")
                   }
-                   /* Corrected: Check for 'plusAdvanced' or 'plusAdvancedYearly' */
-                  disabled={isPlanActive("plusAdvanced") || isPlanActive("plusAdvancedYearly")}
+                  /* Corrected: Check for 'plusAdvanced' or 'plusAdvancedYearly' */
+                  disabled={
+                    isPlanActive("plusAdvanced") ||
+                    isPlanActive("plusAdvancedYearly")
+                  }
                 >
-                  {isPlanActive("plusAdvanced") || isPlanActive("plusAdvancedYearly")
+                  {isPlanActive("plusAdvanced") ||
+                  isPlanActive("plusAdvancedYearly")
                     ? "Current Plan"
                     : "Plus Advanced Plan"}
                 </Button>
-                {isPlanActive("plusAdvanced") || isPlanActive("plusAdvancedYearly") ? (
+                {isPlanActive("plusAdvanced") ||
+                isPlanActive("plusAdvancedYearly") ? (
                   <Text as="p" variant="bodySm" tone="success">
                     Your active subscription
                   </Text>
@@ -605,56 +618,3 @@ export default function MainSubscriptionManage() {
     </Page>
   );
 }
-
-// export const action = async ({ request }) => {
-//   // Import server-side modules only in server functions
-//   const { billing, authenticate, BASIC_PLAN, PLUS_PLAN, PLUS_ADVANCED } =
-//     await import("../server");
-//   const { session } = await authenticate.admin(request);
-//   const shop = session.shop.replace(".mycom", "");
-
-//   const formData = await request.formData();
-//   const plan = formData.get("plan");
-//   const billingType = formData.get("billingType");
-
-//   console.log("Form Data:", formData);
-
-//   // Determine which plan to use based on the form data
-//   switch (plan) {
-//     case "basic":
-//       await billing.require({
-//         plans: [BASIC_PLAN],
-//         onFailure: async () =>
-//           billing.request({
-//             plan: BASIC_PLAN,
-//             isTest: true,
-//             returnUrl: `https://admin.com/store/${shop}/apps/checkout-deploy-2/app/subscription-manage`,
-//           }),
-//       });
-//       break;
-//     case "plus":
-//       await billing.require({
-//         plans: [PLUS_PLAN],
-//         onFailure: async () =>
-//           billing.request({
-//             plan: PLUS_PLAN,
-//             isTest: true,
-//             returnUrl: `https://admin.com/store/${shop}/apps/checkout-deploy-2/app/subscription-manage`,
-//           }),
-//       });
-//       break;
-//     case "plusAdvanced":
-//       await billing.require({
-//         plans: [PLUS_ADVANCED],
-//         onFailure: async () =>
-//           billing.request({
-//             plan: PLUS_ADVANCED,
-//             isTest: true,
-//             returnUrl: `https://admin.com/store/${shop}/apps/checkout-deploy-2/app/subscription-manage`,
-//           }),
-//       });
-//       break;
-//   }
-
-//   return { success: true };
-// };
