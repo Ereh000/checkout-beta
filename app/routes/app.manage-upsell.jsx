@@ -26,13 +26,13 @@ export async function loader({ request }) {
         }
       }
     `);
-    // const { shop } = await response.json().data;
     const data = await response.json();
+    // const { shop } = data;
 
     // Fetch all upsells for this shop
     const upsells = await prisma.upsellSettings.findMany({
       where: {
-        shopId: data.data.shop.id
+        shopId: data.data.shop.id,
       },
       select: {
         id: true,
@@ -40,11 +40,11 @@ export async function loader({ request }) {
         selectionType: true,
         selectedProducts: true,
         selectedCollections: true,
-        createdAt: true
+        createdAt: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: "desc",
+      },
     });
 
     return { upsells };
@@ -62,13 +62,16 @@ export async function action({ request }) {
   try {
     await prisma.upsellSettings.delete({
       where: {
-        id: parseInt(id)
-      }
+        id: parseInt(id),
+      },
     });
     return json({ success: true });
   } catch (error) {
     console.error("Delete error:", error);
-    return json({ success: false, error: "Failed to delete upsell" }, { status: 500 });
+    return json(
+      { success: false, error: "Failed to delete upsell" },
+      { status: 500 },
+    );
   }
 }
 
@@ -87,7 +90,7 @@ export default function ManageUpsell() {
     if (selectedUpsell) {
       fetcher.submit(
         { action: "delete", id: selectedUpsell.id },
-        { method: "POST" }
+        { method: "POST" },
       );
       setDeleteModalOpen(false);
       setSelectedUpsell(null);
@@ -100,50 +103,53 @@ export default function ManageUpsell() {
   };
 
   const getConditionType = (upsell) => {
+    console.log("upsell:", upsell);
     if (upsell.selectedProducts && upsell.selectedProducts.length > 0) {
-      return 'Selected Products';
-    } else if (upsell.selectedCollections && upsell.selectedCollections.length > 0) {
-      return 'Selected Collections';
+      return "Selected Products";
+    } else if (
+      upsell.selectedCollections &&
+      upsell.selectedCollections.length > 0
+    ) {
+      return "Selected Collections";
     } else {
-      return 'All Products';
+      return "All Products";
     }
   };
 
-  const rowMarkup = upsells.map(
-    (upsell, index) => (
-      <IndexTable.Row id={upsell.id} key={upsell.id} position={index}>
-        <IndexTable.Cell>
-          <Text variant="bodyMd" fontWeight="bold">
-            {upsell.upsellName}
-          </Text>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          <Text variant="bodyMd">
-            {getConditionType(upsell)}
-          </Text>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          {new Date(upsell.createdAt).toLocaleDateString()}
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          <ButtonGroup>
-            <Button
-              plain
-              url={`/app/edit-upsell/${upsell.id}`}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="primary" tone="critical"
-              onClick={() => handleDeleteClick(upsell)}
-            >
-              Delete
-            </Button>
-          </ButtonGroup>
-        </IndexTable.Cell>
-      </IndexTable.Row>
-    ),
-  );
+  const rowMarkup = upsells.map((upsell, index) => (
+    <IndexTable.Row id={upsell.id} key={upsell.id} position={index}>
+      <IndexTable.Cell>
+        <Text variant="bodyMd" fontWeight="bold">
+          {upsell.upsellName}
+        </Text>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <Text variant="bodyMd">
+          {/* {getConditionType(upsell)} */}
+          {upsell.selectionType === "all"
+            ? "All Products"
+            : getConditionType(upsell)}
+        </Text>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        {new Date(upsell.createdAt).toLocaleDateString()}
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <ButtonGroup>
+          <Button plain url={`/app/create-upsell?id=${upsell.id}`}>
+            Edit
+          </Button>
+          <Button
+            variant="primary"
+            tone="critical"
+            onClick={() => handleDeleteClick(upsell)}
+          >
+            Delete
+          </Button>
+        </ButtonGroup>
+      </IndexTable.Cell>
+    </IndexTable.Row>
+  ));
 
   return (
     <Page
@@ -156,13 +162,13 @@ export default function ManageUpsell() {
     >
       <LegacyCard>
         <IndexTable
-          resourceName={{ singular: 'Upsell', plural: 'Upsells' }}
+          resourceName={{ singular: "Upsell", plural: "Upsells" }}
           itemCount={upsells.length}
           headings={[
-            { title: 'Upsell Name' },
-            { title: 'Condition Type' },
-            { title: 'Created Date' },
-            { title: 'Actions' },
+            { title: "Upsell Name" },
+            { title: "Condition Type" },
+            { title: "Created Date" },
+            { title: "Actions" },
           ]}
           selectable={false}
         >
@@ -200,8 +206,8 @@ export default function ManageUpsell() {
         <Modal.Section>
           <TextContainer>
             <p>
-              Are you sure you want to delete the upsell "{selectedUpsell?.upsellName}"?
-              This action cannot be undone.
+              Are you sure you want to delete the upsell "
+              {selectedUpsell?.upsellName}"? This action cannot be undone.
             </p>
           </TextContainer>
         </Modal.Section>

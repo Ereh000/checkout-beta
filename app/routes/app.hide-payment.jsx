@@ -108,7 +108,9 @@ export function Body({ id, host }) {
         host: host,
         selectMultiple: true,
         initialQuery: "",
-      });
+        resourceType: "Product",
+        showVariants: false,
+      });  
 
       if (products) {
         const selectedProducts = products.map((product) => ({
@@ -293,7 +295,7 @@ export function Body({ id, host }) {
       } else if (condition.discountType === "product") {
         const productIds = condition.selectedProducts || [];
         formData.append(`selectedProducts`, productIds.join(","));
-      } else if (condition.discountType === "shipping_country") {
+      } else if (condition.discountType === "shipping_country") {  
         formData.append(`country`, condition.country || "");
       }
     });

@@ -51,48 +51,36 @@ function Extension() {
     section_1_text,
   ); // Add this line for debugging
   // Convert imageSize to a string with 'px' for styling
-  const imageSizeStyle = `${imageSize || 120}px`;
+  const imageSizeStyle = `${imageSize || 110}px`;
 
   return (
     <BlockStack border="base" cornerRadius="base" padding="base">
-      {/* <BlockSpacer spacing="loose" /> */}
-      <View inlineAlignment={"start"}>
-        <Heading>{title || "Add Testimonials Or List Badges"}</Heading>
-      </View>
+      <Heading level={2}>{title || "Add Testimonials Or List Badges"}</Heading>
 
       {/* first block */}
-      {/* <BlockSpacer spacing="loose" />  */}
       <InlineLayout
-        columns={[`${imageSizeStyle}`, "10px", "fill"]}
+        columns={[`${imageSizeStyle}`, "fill"]}
         inlineAlignment={textAlignment || "end"}
         blockAlignment="center"
+        spacing="base"
       >
-        <View padding="base">
+        <View>
           <Image
             source={
               image_1_url
                 ? image_1_url
                 : "https://cdn.shopify.com/s/files/1/0669/9591/3009/files/eco-checkout.png?v=1702968669"
             }
-            // fit="cover"
-            // aspectRatio={1}
-            // width={imageSizeStyle}
-            // height={imageSizeStyle}
           />
         </View>
-        
+
         <View inlineAlignment={textAlignment || "left"}>
-          {/* <BlockSpacer spacing="loose" /> */}
-          <BlockStack>
-            <Heading>{"Easy & Return"}</Heading>
-            <Text size={textSize || "none"}>
-              {section_1_text ||
-                "We have a 30-day return policy, which means you have 30 days after receiving your item to request a return."}
-            </Text>
-          </BlockStack>  
+          <Text size={textSize || "none"}>
+            {section_1_text ||
+              "We have a 30-day return policy, which means you have 30 days after receiving your item to request a return."}
+          </Text>
         </View>
       </InlineLayout>
-      {/* <BlockSpacer spacing="loose" /> */}
     </BlockStack>
   );
 }

@@ -11,14 +11,30 @@ import { json } from "@remix-run/node";
 
 export const action = async ({ request }) => {
   const { billing, session } = await authenticate.admin(request);
-    const shop = session.shop.replace(".myshopify.com", "");
+  const shop = session.shop.replace(".myshopify.com", "");
+  // Fix: Add error handling and default value for appHandle
+  let appHandle;
+  try {
+    appHandle = session.scope
+      .split("/")
+      .find((segment) => segment.startsWith("checkout-"));
+    if (!appHandle) {
+      // Fallback to a default value based on your app name
+      appHandle = "checkout-deploy-2";
+    }
+  } catch (error) {
+    console.error("Error extracting appHandle:", error);
+    appHandle = "checkout-deploy-2";
+  }
+
+  console.log("appHandle:", appHandle);
 
   const formData = await request.formData();
   const plan = formData.get("plan");
+
   //   const billingType = formData.get("billingType");
 
-    const returnUrl = `https://admin.shopify.com/store/${shop}/apps/checkout-deploy-2/app/subscription-manage`;
-//   const returnUrl = `https://admin.shopify.com/store/athatake/apps/checkout-deploy-2/app`;
+  const returnUrl = `https://admin.shopify.com/store/${shop}/apps/${appHandle}/app/subscription-manage`; //   const returnUrl = `https://admin.shopify.com/store/athatake/apps/checkout-deploy-2/app`;
 
   console.log("Form Data:", plan);
 
@@ -33,7 +49,7 @@ export const action = async ({ request }) => {
         }),
     });
   }
-  if(plan === "plus") {
+  if (plan === "plus") {
     await billing.require({
       plans: [PLUS_PLAN],
       onFailure: async () =>
@@ -44,7 +60,7 @@ export const action = async ({ request }) => {
         }),
     });
   }
-  if(plan === "plusAdvanced") {
+  if (plan === "plusAdvanced") {
     await billing.require({
       plans: [PLUS_ADVANCED],
       onFailure: async () =>
@@ -55,7 +71,7 @@ export const action = async ({ request }) => {
         }),
     });
   }
-  if(plan === "basicYearly") {
+  if (plan === "basicYearly") {
     await billing.require({
       plans: [BASIC_PLAN_YEARLY],
       onFailure: async () =>
@@ -66,7 +82,7 @@ export const action = async ({ request }) => {
         }),
     });
   }
-  if(plan === "plusYearly") {
+  if (plan === "plusYearly") {
     await billing.require({
       plans: [PLUS_PLAN_YEARLY],
       onFailure: async () =>
@@ -77,7 +93,7 @@ export const action = async ({ request }) => {
         }),
     });
   }
-  if(plan === "plusAdvancedYearly") {
+  if (plan === "plusAdvancedYearly") {
     await billing.require({
       plans: [PLUS_ADVANCED_YEARLY],
       onFailure: async () =>

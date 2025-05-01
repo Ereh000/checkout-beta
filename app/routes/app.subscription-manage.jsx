@@ -13,6 +13,7 @@ import {
   Box,
   Link,
   Banner,
+  Modal,
 } from "@shopify/polaris";
 
 import {
@@ -113,6 +114,25 @@ export default function MainSubscriptionManage() {
     PLUS_PLAN_YEARLY,
     PLUS_ADVANCED_YEARLY,
   } = planConstants || {};
+
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [planToCancel, setPlanToCancel] = useState(null);
+  // Update the handleCancel function
+  const handleCancelClick = (plan) => {
+    setPlanToCancel(plan);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = () => {
+    cancelFetcher.submit(
+      {
+        plan: planToCancel,
+        billingType: selectedBilling,
+      },
+      { method: "post", action: "/api/cancel-subscription" },
+    );
+    setShowCancelModal(false);
+  };
 
   console.log("Active Plan:", activePlan);
   const activePlanMain = activePlan;
@@ -356,7 +376,8 @@ export default function MainSubscriptionManage() {
             {/* Add Cancel Button Here */}
             <div style={{ marginTop: "10px" }}>
               <Button
-                onClick={() => handleCancel(activePlanMain)}
+                // onClick={() => handleCancel(activePlanMain)}
+                onClick={() => handleCancelClick(activePlanMain)}
                 loading={isCancelling}
                 disabled={isCancelling} // Disable if any action is in progress
                 variant="primary"
@@ -615,6 +636,48 @@ export default function MainSubscriptionManage() {
           </Text>
         </InlineStack>
       </Box>
+
+      {/* Cancel Confirmation Modal */}
+      <Modal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Cancel Subscription"
+        primaryAction={{
+          content: "Yes, Cancel Subscription",
+          destructive: true,
+          onAction: handleCancelConfirm,
+          loading: isCancelling,
+        }}
+        secondaryActions={[
+          {
+            content: "No, Keep Subscription",
+            onAction: () => setShowCancelModal(false),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Text as="p">
+              Are you sure you want to cancel your subscription? This action
+              cannot be undone.
+            </Text>
+            <Text as="p" tone="warning">
+              After cancellation:
+            </Text>
+            <ul style={{ paddingLeft: "20px" }}>
+              <li>
+                Your access will continue until the end of your current billing
+                period
+              </li>
+              <li>You will lose access to premium features</li>
+              <li>
+                Your settings and configurations will be preserved if you
+                resubscribe later
+              </li>
+            </ul>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }

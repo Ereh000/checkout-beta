@@ -1,779 +1,331 @@
-// Import necessary components and libraries from Shopify Polaris UI framework
+// _index.jsx
 import {
-  Card,
-  TextField,
-  Select,
-  Button,
-  Icon,
   Page,
+  Layout,
+  Card,
+  Button,
   Text,
-  Box,
+  TextContainer,
   Grid,
-  Autocomplete,
-  Listbox,
-  Checkbox,
-  Banner,
+  Icon,
+  MediaCard,
+  VideoThumbnail,
+  BlockStack, // Added BlockStack
+  InlineStack, // Added InlineStack
+  Box,
+  Banner, // Added Box for icon styling
 } from "@shopify/polaris";
 
-// Import custom icons for the application
-import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
-
-// Import React hooks and utilities
-import { useCallback, useMemo, useState } from "react";
-
-// Import authentication and API utility functions from shopify.server
-import { authenticate } from "../shopify.server";
-
-// Import Remix Run hooks and utilities for handling server-side actions and data fetching
 import {
-  Form,
-  json,
-  useActionData,
-  useFetcher,
-  useLoaderData,
-} from "@remix-run/react";
+  AlertCircleIcon,
+  CartUpIcon,
+  CartIcon,
+  CreditCardSecureIcon,
+  DeliveryFilledIcon,
+  GiftCardIcon,
+  OrderFulfilledIcon,
+  ShareIcon,
+  StoreIcon,
+  ToggleOffIcon,
+  AppsIcon,
+} from "@shopify/polaris-icons";
+import { authenticate } from "../shopify.server";
+import { json, useLoaderData } from "@remix-run/react";
 
-// Loader function to fetch shop data from Shopify API
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
 
-  try {
-    // Query the Shopify GraphQL API to get the shop ID
-    const response = await admin.graphql(`
-      query{
-        shop{
-          id
+  const response = await admin.graphql(`
+    query GetCheckoutProfile {
+      checkoutProfiles(first: 1, query: "is_published:true") {
+        edges {
+          node {
+            id
+            name
+          }
         }
       }
-    `);
-    const shop = await response.json();
+    }
+  `);
 
-    // Return the shop ID as part of the loader data
-    return {
-      id: shop.data.shop.id,
-      host: session.shop, // Add host information
-    };
-  } catch (error) {
-    // Handle errors by returning an error message
-    return { message: "owner not found", error: error };
-  }
+  const data = await response.json();
+  const checkoutProfile = data.data.checkoutProfiles.edges[0].node;
+  console.log("checkoutProfile", checkoutProfile);
+
+  // const checkoutProfileId = checkoutProfile.id;
+  // Extract the numeric ID from the GID
+  const profileId = checkoutProfile.id.split("/").pop();
+
+  return json({
+    checkoutProfileId: profileId,
+    shop: session.shop.split(".myshopify.com")[0], // Get shop name without domain
+  });
 }
 
-// Action function to handle form submissions and update Shopify metafields
+// import { Redirect
 
-
-// Main component rendering the page
-export default function CustomizationSection() {
-  const { id, host } = useLoaderData(); // Fetch shop ID from loader data
-  const dataa = useActionData(); // Fetch action data after form submission
-
-  console.log("data", dataa);
-  
+export default function Index() {
   return (
-    <Page
-      backAction={{ content: "Settings", url: "/app/payment-customization" }} // Back button navigation
-      title="Hide Payment Method" // Page title
-    >
-      <Body id={id} host={host} /> {/* Render the main form body */}
-    </Page>  
-  );
-}
-
-// Component responsible for rendering the form fields and interactions
-export function Body({ id, host }) {
-  // const { host } = useLoaderData(); // Fetch host information from loader data
-
-  const [alertMessage, setAlertMessage] = useState(null); // Add new state for alert messages
-  const [parentValue, setParentValue] = useState(""); // Parent value state
-  const [customizeName, setCustomizeName] = useState(""); // Customization name state
-  const handleChildValue = (childValue) => {
-    setParentValue(childValue); // Handle child value change
-  };
-
-  // Modal logic for selecting products
-  // const [modalActive, setModalActive] = useState(false);
-  // const [selectedProducts, setSelectedProducts] = useState([]);
-  const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
-
-  // State to manage the list of conditions
-  const [conditions, setConditions] = useState([
-    {
-      discountType: "product",
-      greaterOrSmall: "is",
-      amount: 0,
-      selectedProducts: [],
-      country: "in",
-    },
-  ]);
-
-  // Remove the static products array and modal state
-  // Add resource picker handler
-  const handleProductPicker = useCallback(
-    async (index) => {
-      const products = await window.shopify.resourcePicker({
-        type: "product",
-        action: "select",
-        multiple: true,
-        host: host,
-        selectMultiple: true,
-        initialQuery: "",
-      });
-
-      if (products) {
-        const selectedProducts = products.map((product) => ({
-          id: product.id,
-          title: product.title,
-          productType: product.productType,
-          handle: product.handle,
-        }));
-
-        setConditions((prevConditions) =>
-          prevConditions.map((c, i) =>
-            i === index
-              ? {
-                  ...c,
-                  selectedProducts: selectedProducts.map((p) => p.id),
-                  productTitles: selectedProducts.map((p) => p.title),
-                }
-              : c,
-          ),
-        );
-      }
-    },
-    [host],
-  );
-
-  const toggleModal = useCallback(() => {
-    setModalActive((active) => !active); // Toggle modal visibility
-  }, []);
-
-  const handleSelectProduct = useCallback((id) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    ); // Add or remove selected products
-  }, []);
-
-  // Update the selectedProductTitles calculation
-  const selectedProductTitles =
-    conditions[currentConditionIndex]?.selectedProducts || [];
-
-  // Function to add a new condition
-  // Remove duplicate check from handleAddCondition
-  const handleAddCondition = () => {
-    const newDiscountType = "cart_total";
-    setConditions((prevConditions) => [
-      ...prevConditions,
-      {
-        discountType: newDiscountType,
-        greaterOrSmall: "greater_than",
-        amount: 0,
-        selectedProducts: [],
-        country: "in",
-      },
-    ]);
-  };
-
-  // Function to remove a condition
-  const handleRemoveCondition = (index) => {
-    setConditions((prevConditions) =>
-      prevConditions.filter((_, i) => i !== index),
-    );
-  };
-
-  // Function to handle changes in condition fields
-  const handleConditionChange = (index, field, value) => {
-    setConditions((prevConditions) =>
-      prevConditions.map((c, i) =>
-        i === index ? { ...c, [field]: value } : c,
-      ),
-    );
-  };
-
-  // const [cartAmount, setCartAmount] = useState(0); // Cart amount state
-
-  // Function to open modal and set current condition index
-  const openModalForCondition = (index) => {
-    setCurrentConditionIndex(index);
-    setSelectedProducts(conditions[index].selectedProducts);
-    toggleModal();
-  };
-
-  // Validation function
-  const fetcher = useFetcher();
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const validateForm = () => {
-    const errorMessages = [];
-
-    // Validate customization name
-    if (!customizeName || customizeName.trim() === "") {
-      errorMessages.push("Customization name is required");
-    } else if (customizeName === "No name..") {
-      errorMessages.push("Please enter a valid name");
-    }
-
-    // Validate payment method
-    if (!parentValue || parentValue.trim() === "") {
-      errorMessages.push("Payment method is required");
-    }
-
-    // Check for duplicate conditions
-    const conditionTypes = conditions.map((c) => c.discountType);
-    const uniqueConditions = new Set(conditionTypes);
-    if (uniqueConditions.size !== conditionTypes.length) {
-      errorMessages.push(
-        "Duplicate conditions are not allowed. Please remove duplicate conditions.",
-      );
-    }
-
-    // Existing validation checks
-    if (!customizeName || customizeName.trim() === "") {
-      errorMessages.push("Customization name is required");
-    } else if (customizeName === "No name..") {
-      errorMessages.push("Please enter a valid name");
-    }
-
-    // Validate conditions
-    if (conditions.length === 0) {
-      errorMessages.push("At least one condition is required");
-    } else {
-      conditions.forEach((condition) => {
-        if (condition.discountType === "cart_total" && !condition.amount) {
-          errorMessages.push("Cart amount is required");
-        }
-        if (
-          condition.discountType === "product" &&
-          (!condition.selectedProducts ||
-            condition.selectedProducts.length === 0)
-        ) {
-          errorMessages.push("At least one product must be selected");
-        }
-        if (
-          condition.discountType === "shipping_country" &&
-          !condition.country
-        ) {
-          errorMessages.push("Country is required");
-        }
-      });
-    }
-
-    if (errorMessages.length > 0) {
-      setAlertMessage({
-        status: "critical",
-        message: (
-          <ul style={{ margin: 0, paddingLeft: "20px" }}>
-            {errorMessages.map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
-        ),
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Use only validateForm for all validations
-    if (!validateForm()) {
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Prepare form data
-    const formData = new FormData();
-    formData.append("id", id);
-    formData.append("customizeName", customizeName);
-    formData.append("paymentMethod", parentValue);
-
-    // Add conditions
-    conditions.forEach((condition, index) => {
-      formData.append(`conditionType`, condition.discountType);
-      formData.append(`greaterSmaller`, condition.greaterOrSmall);
-
-      if (condition.discountType === "cart_total") {
-        formData.append(`cartTotal`, parseFloat(condition.amount) || 0); // Changed to parseFloat
-      } else if (condition.discountType === "product") {
-        const productIds = condition.selectedProducts || [];
-        formData.append(`selectedProducts`, productIds.join(","));
-      } else if (condition.discountType === "shipping_country") {
-        formData.append(`country`, condition.country || "");
-      }
-    });
-
-    try {
-      await fetcher.submit(formData, {
-        method: "POST",
-        action: "/api/payments/hide",
-      });
-
-      if (fetcher.data?.error) {
-        setAlertMessage({
-          status: "critical",  
-          message: fetcher.data.error,
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      setAlertMessage({
-        status: "success",
-        message: "Settings saved successfully!",
-      });
-    } catch (error) {
-      console.error("Submission error:", error);
-      setAlertMessage({
-        status: "critical",
-        message: error.message || "Failed to save. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <Grid>
-      <Grid.Cell columnSpan={{ md: 12, lg: 12, xl: 12 }}>
-        {alertMessage && (
-          <Banner
-            tone={alertMessage.status === "success" ? "success" : "critical"}
-            onDismiss={() => setAlertMessage(null)}
-          >
-            {alertMessage.message}
-          </Banner>
-        )}
-      </Grid.Cell>
-      <Grid.Cell columnSpan={{ md: 12, lg: 8, xl: 8 }}>
-        <Card
-          style={{
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid #E5E7EB",
+    <>
+      <Page>
+        <Banner
+          title="Upgrade Plan to get all features"
+          action={{
+            content: "Upgrade Now",
+            url: "/app/subscription-manage",
+            variant: "primary",
           }}
+          tone="info"
         >
-          <Form method="POST" onSubmit={handleSubmit}>
-            <input type="hidden" name="id" value={id} />
+        </Banner>
+        <br />
+        <br />
 
-            <div className="formdetails">
-              {/* Customization Name */}
-              <div>
-                <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Customization Name
-                </label>
-                <TextField
-                  placeholder="Example: Hide Cash on Delivery (COD) For Large Orders"
-                  style={{ width: "100%" }}
-                  name="customizeName"
-                  value={customizeName}
-                  onChange={setCustomizeName}
+        <>
+          <Grid>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
+              <PaymentAndShippingCustomizations />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
+              {/* <br />
+              <br /> */}
+              <MediaCard
+                portrait
+                title="Getting Started with Checkout Plus"
+                primaryAction={{
+                  content: "Learn more",
+                  onAction: () => {},
+                }}
+                description="Thank you for using Checkout Plus. Here is an in depth guide on how to get customize your checkout using Checkout Plus."
+                popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
+              >
+                <VideoThumbnail
+                  videoLength={80}
+                  thumbnailUrl="https://94m.app/images/Getting-Started-Thumbnail.webp"
+                  onClick={() => console.log("clicked")}
                 />
-                <p
-                  style={{
-                    marginTop: "5px",
-                    fontSize: "12px",
-                    color: "#6B7280",
-                  }}
-                >
-                  This is not visible to the customer
-                </p>
-              </div>
-
-              {/* Select Payment Method */}
-              <div style={{ marginTop: "20px" }}>
-                <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                  Select Payment Method
-                </label>
-                <AutocompleteExample onValueChange={handleChildValue} />
-                {errors.paymentMethod && (
-                  <div
-                    style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
-                  >
-                    {errors.paymentMethod}
-                  </div>
-                )}
-                <input type="hidden" name="paymentMethod" value={parentValue} />
-                <p
-                  style={{
-                    marginTop: "5px",
-                    fontSize: "12px",
-                    color: "#6B7280",
-                  }}
-                >
-                  Don't see your payment method? You can type it manually and
-                  press Enter to add it to the list.
-                </p>
-              </div>
-
-              {/* Condition Builder */}
-              <div style={{ marginTop: "20px" }}>
-                {errors.conditions && (
-                  <div
-                    style={{
-                      color: "red",
-                      fontSize: "12px",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    {errors.conditions}
-                  </div>
-                )}
-                {conditions.map((condition, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: "flex",
-                      alignItems: "self-start",
-                      gap: "10px",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    {/* Dropdown 1 */}
-                    <div className="" style={{ flexGrow: 1 }}>
-                      <Select
-                        options={[
-                          { label: "Cart Total", value: "cart_total" },
-                          { label: "Product", value: "product" },
-                          {
-                            label: "Shipping Country",
-                            value: "shipping_country",
-                          },
-                        ]}
-                        placeholder="Select a field"
-                        style={{ flex: 1 }}
-                        value={condition.discountType}
-                        onChange={(value) =>
-                          handleConditionChange(index, "discountType", value)
-                        }
-                        name={`conditionType`}
-                      />
-                    </div>
-
-                    {/* Condition-specific fields */}
-                    {/* grater/lessThan label revrsed as logic works like this */}
-                    {condition.discountType === "cart_total" && (
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <Select
-                          options={[
-                            { label: "is less than", value: "greater_than" },
-                            { label: "is greater than", value: "less_than" },
-                          ]}
-                          placeholder="Select a condition"
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value,
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <TextField
-                          placeholder="100"
-                          type="number"
-                          value={condition.amount}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "amount",
-                              parseFloat(value),
-                            )
-                          }
-                          style={{ flex: 1 }}
-                          name="cartTotal"
-                        />
-                      </div>
-                    )}
-
-                    {condition.discountType === "product" && (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Select
-                          options={[{ label: "is", value: "is" }]}
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value,
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <input
-                          type="hidden"
-                          label="Selected Products"
-                          value={condition.selectedProducts.join(", ")}
-                          name={`selectedProducts`}
-                        />
-                        <Button
-                          onClick={() => handleProductPicker(index)}
-                          disabled={isSubmitting}
-                        >
-                          Select Products
-                        </Button>
-                        {/* {condition.productTitles &&
-                          condition.productTitles.length > 0 && (
-                            <div style={{ marginTop: "10px" }}>
-                              <Text variant="bodyMd">Selected Products:</Text>
-                              <ul
-                                style={{
-                                  marginTop: "5px",
-                                  paddingLeft: "20px",
-                                }}
-                              >
-                                {condition.productTitles.map((title, idx) => (
-                                  <li key={idx}>{title}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )} */}
-                        {errors[`products`] && (
-                          <div style={{ color: "red", fontSize: "12px" }}>
-                            {errors[`products`]}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {condition.discountType === "shipping_country" && (
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <Select
-                          options={[{ label: "is", value: "is" }]}
-                          style={{ flex: 1 }}
-                          value={condition.greaterOrSmall}
-                          onChange={(value) =>
-                            handleConditionChange(
-                              index,
-                              "greaterOrSmall",
-                              value,
-                            )
-                          }
-                          name={`greaterSmaller`}
-                        />
-                        <Select
-                          options={[
-                            { label: "IN", value: "in" },
-                            { label: "CN", value: "cn" },
-                          ]}
-                          style={{ flex: 1 }}
-                          value={condition.country}
-                          onChange={(value) =>
-                            handleConditionChange(index, "country", value)
-                          }
-                          name={`country`}
-                        />
-                      </div>
-                    )}
-
-                    {/* Trash Icon */}
-                    <Button
-                      onClick={() => handleRemoveCondition(index)}
-                      disabled={isSubmitting}
-                    >
-                      <Icon source={DeleteIcon} color="critical" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add Condition Button */}
-              <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onClick={handleAddCondition}
-                  disabled={isSubmitting}
-                >
-                  +Add condition
-                </Button>
-              </div>
-
-              {/* Submit Button */}
-              <div style={{ marginTop: "20px", textAlign: "center" }}>
-                <Button
-                  submit
-                  variant="primary"
-                  fullWidth
-                  loading={isSubmitting}
-                >
-                  Submit
-                </Button>
-              </div>
-            </div>
-          </Form>
-        </Card>
-      </Grid.Cell>
-      <Grid.Cell columnSpan={{ md: 12, lg: 4, xl: 4 }}>
-        <Card roundedAbove="sm">
-          <Text as="h2" variant="headingSm">
-            Online store dashboard
-          </Text>
-          <Box paddingBlockStart="200">
-            <Text as="p" variant="bodyMd">
-              View a summary of your selections below:
-            </Text>
-
-            {/* Display selected inputs */}
-            <Box paddingBlockStart="300">
-              {customizeName && (
-                <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">
-                    Customization Name:{" "}
-                  </Text>
-                  <Text as="span">{customizeName}</Text>
-                </Box>
-              )}
-
-              {parentValue && (
-                <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">
-                    Payment Method:{" "}
-                  </Text>
-                  <Text as="span">{parentValue}</Text>
-                </Box>
-              )}
-
-              {conditions.map((condition, index) => (
-                <Box key={index} paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="p">
-                    Condition {index + 1}:
-                  </Text>
-
-                  <Box paddingInlineStart="300" paddingBlockEnd="100">
-                    <Text fontWeight="bold" as="span">
-                      Type:{" "}
-                    </Text>
-                    <Text as="span">
-                      {condition.discountType === "cart_total"
-                        ? "Cart Total"
-                        : condition.discountType === "product"
-                          ? "Product"
-                          : "Shipping Country"}
-                    </Text>
-                  </Box>
-
-                  {condition.discountType === "cart_total" && (
-                    <Box paddingInlineStart="300" paddingBlockEnd="100">
-                      <Text fontWeight="bold" as="span">
-                        Amount:{" "}
-                      </Text>
-                      <Text as="span">
-                        {condition.greaterOrSmall === "greater_than"
-                          ? ">"
-                          : "<"}{" "}
-                        {condition.amount}
-                      </Text>
-                    </Box>
-                  )}
-
-                  {condition.discountType === "product" &&
-                    condition.productTitles && (
-                      <Box paddingInlineStart="300" paddingBlockEnd="100">
-                        <Text fontWeight="bold" as="p">
-                          Selected Products:
-                        </Text>
-                        <ul style={{ margin: "5px 0", paddingLeft: "20px" }}>
-                          {condition.productTitles.map((title, idx) => (
-                            <li key={idx}>
-                              <Text as="span">{title}</Text>
-                            </li>
-                          ))}
-                        </ul>
-                      </Box>
-                    )}
-
-                  {condition.discountType === "shipping_country" && (
-                    <Box paddingInlineStart="300" paddingBlockEnd="100">
-                      <Text fontWeight="bold" as="span">
-                        Country:{" "}
-                      </Text>
-                      <Text as="span">{condition.country.toUpperCase()}</Text>
-                    </Box>
-                  )}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Card>
-      </Grid.Cell>
-    </Grid>
+              </MediaCard>
+            </Grid.Cell>
+            {/* row 2 */}
+            <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 312, lg: 12, xl: 12 }}>
+              <ExtensionsSection />
+            </Grid.Cell>
+          </Grid>
+        </>
+        <br />
+        <br />
+      </Page>
+    </>
   );
 }
 
-// Custom autocomplete component
-export function AutocompleteExample({ onValueChange }) {
-  const deselectedOptions = useMemo(
-    () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
-    [],
+export function PaymentAndShippingCustomizations() {
+  return (
+    // <Card>
+    <BlockStack gap="400">
+      <Text variant="headingLg" as="h2">
+        Payment & Shipping Customizations
+      </Text>
+      <BlockStack gap="300">
+        {/* Payment Customizations */}
+        <Card>
+          <InlineStack
+            align="space-between"
+            blockAlign="center"
+            justify="space-between"
+            wrap={false}
+          >
+            <InlineStack gap="400" blockAlign="center" wrap={false}>
+              <Icon source={CreditCardSecureIcon} />
+              <BlockStack gap="100">
+                <Text variant="bodyMd" as="p" fontWeight="semibold">
+                  Payment Customizations
+                </Text>
+                <Text variant="bodySm" as="p" tone="subdued">
+                  Hide, modify or reorder your payment options at checkout
+                </Text>
+              </BlockStack>
+            </InlineStack>
+            <Button variant="primary" url="/app/payment-customization">
+              Manage
+            </Button>
+          </InlineStack>
+        </Card>
+
+        {/* Shipping Customizations */}
+        <Card>
+          <InlineStack
+            align="space-between"
+            blockAlign="center"
+            justify="space-between"
+            wrap={false}
+          >
+            <InlineStack gap="400" blockAlign="center" wrap={false}>
+              <Icon source={DeliveryFilledIcon} />
+              <BlockStack gap="100">
+                <Text variant="bodyMd" as="p" fontWeight="semibold">
+                  Shipping Customizations
+                </Text>
+                <Text variant="bodySm" as="p" tone="subdued">
+                  Add a message or hide your shipping methods
+                </Text>
+              </BlockStack>
+            </InlineStack>
+            <Button url="/app/shipping-customizations" variant="primary">
+              Manage
+            </Button>
+          </InlineStack>
+        </Card>
+
+        {/* Order Validations - Uncomment if needed later
+          <Card background="bg-surface-secondary">
+            <InlineStack align="center" blockAlign="center" justify="space-between" wrap={false}>
+              <InlineStack gap="400" blockAlign="center" wrap={false}>
+                <Icon source={AlertCircleIcon} color="critical" />
+                <BlockStack gap="100">
+                  <Text variant="bodyMd" as="p" fontWeight="semibold">
+                    Order Validations
+                  </Text>
+                  <Text variant="bodySm" as="p" tone="subdued">
+                    Block suspicious orders based on address, customer tags, etc
+                  </Text>
+                </BlockStack>
+              </InlineStack>
+              <Button variant="primary" disabled>Coming Soon</Button>
+            </InlineStack>
+          </Card>
+          */}
+      </BlockStack>
+    </BlockStack>
+    // </Card>
   );
+}
 
-  const [selectedOptions, setSelectedOptions] = useState([]);
-  const [inputValue, setInputValue] = useState("");
-  const [options, setOptions] = useState(deselectedOptions);
+function ExtensionsSection() {
+  const { checkoutProfileId, shop } = useLoaderData();
 
-  const updateText = useCallback(
-    (value) => {
-      setInputValue(value);
-      if (value === "") {
-        setOptions(deselectedOptions);
-        return;
-      }
-      const filterRegex = new RegExp(value, "i");
-      const resultOptions = deselectedOptions.filter((option) =>
-        option.label.match(filterRegex),
-      );
-      setOptions(resultOptions);
-    },
-    [deselectedOptions],
-  );
+  const openCheckoutEditor = (page) => {
+    const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=${page}`;
+    window.open(url, "_blank");
+  };
 
-  const updateSelection = useCallback(
-    (selected) => {
-      const selectedValue = selected.map((selectedItem) => {
-        const matchedOption = options.find((option) => {
-          return option.value.match(selectedItem);
-        });
-        return matchedOption && matchedOption.label;
-      });
-      setSelectedOptions(selected);
-      setInputValue(selectedValue[0] || "");
-      onValueChange(selectedValue[0] || "");
-    },
-    [options, onValueChange],
-  );
-
-  const textField = (
-    <Autocomplete.TextField
-      onChange={updateText}
-      value={inputValue}
-      prefix={<Icon source={SearchIcon} tone="base" />}
-      placeholder="Search"
-      autoComplete="off"
-    />
+  // Helper component for individual extension cards
+  const ExtensionCard = ({
+    icon,
+    title,
+    description,
+    buttonLabel,
+    onAction,
+    buttonUrl,
+    buttonPlain,
+  }) => (
+    <Card>
+      <BlockStack gap="300">
+        <Box
+          borderWidth="025"
+          borderColor="border"
+          borderRadius="200"
+          padding="300"
+          width="fit-content"
+        >
+          <Icon source={icon} />
+        </Box>
+        <BlockStack gap="100">
+          <Text variant="bodyMd" as="p" fontWeight="semibold">
+            {title}
+          </Text>
+          <Text variant="bodySm" as="p" tone="subdued">
+            {description}
+          </Text>
+        </BlockStack>
+        <Button
+          variant="primary"
+          onClick={onAction}
+          url={buttonUrl}
+          plain={buttonPlain}
+          fullWidth // Make button take full width of its container if desired
+        >
+          {buttonLabel}
+        </Button>
+      </BlockStack>
+    </Card>
   );
 
   return (
-    <div>
-      <Autocomplete
-        options={options}
-        selected={selectedOptions}
-        onSelect={updateSelection}
-        textField={textField}
-      />
-    </div>
+    // <Card>
+    <BlockStack gap="400">
+      <Text variant="headingLg" as="h2">
+        Extensions
+      </Text>
+      <Grid>
+        {/* Checkout Extensions */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          <ExtensionCard
+            icon={CartIcon}
+            title="Checkout Extensions"
+            description="Custom messages, gift message, trust badges, etc"
+            buttonLabel="Get Started"
+            onAction={() => openCheckoutEditor("checkout")}
+            buttonPlain // Use plain style for Get Started
+          />
+        </Grid.Cell>
+
+        {/* Thank You Extensions */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          <ExtensionCard
+            icon={StoreIcon}
+            title="Thank You Extensions"
+            description="Custom messages, share social media, contact info, etc"
+            buttonLabel="Get Started"
+            onAction={() => openCheckoutEditor("thank-you")}
+            buttonPlain // Use plain style for Get Started
+          />
+        </Grid.Cell>
+
+        {/* Order Status Extensions */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          <ExtensionCard
+            icon={OrderFulfilledIcon}
+            title="Order Status Extensions"
+            description="Custom messages, share social media, contact info, etc"
+            buttonLabel="Get Started"
+            onAction={() => openCheckoutEditor("order-status")}
+            // No buttonPlain here, default primary style
+          />
+        </Grid.Cell>
+
+        {/* Upsells */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          <ExtensionCard
+            icon={CartUpIcon}
+            title="Upsells"
+            description="Offer advanced customizations like upsells"
+            buttonLabel="Manage"
+            buttonUrl="/app/manage-upsell"
+            // No buttonPlain here, default primary style
+          />
+        </Grid.Cell>
+
+        {/* Explore more extension */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          <ExtensionCard
+            icon={AppsIcon}
+            title="Explore more extensions"
+            description="Browse more extensions for your store"
+            buttonLabel="See more options"
+            onAction={() => openCheckoutEditor("checkout")} // Link to checkout editor for exploring
+            // No buttonPlain here, default primary style
+          />
+        </Grid.Cell>
+
+        {/* Add placeholders for future extensions if needed */}
+        {/*
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+             <Card><BlockStack gap="300">...</BlockStack></Card>
+          </Grid.Cell>
+          */}
+      </Grid>
+    </BlockStack>
+    // </Card>
   );
 }
-  
