@@ -11,6 +11,10 @@ import {
   useMetafield,
   useAppMetafields,
   useCartLines,
+  Heading,
+  BlockLayout,
+  Link,
+  useSettings,
 } from "@shopify/ui-extensions-react/checkout";
 
 export default reactExtension("purchase.checkout.block.render", () => (
@@ -18,6 +22,7 @@ export default reactExtension("purchase.checkout.block.render", () => (
 ));
 
 function Extension() {
+  const { layout } = useSettings();
   // State management
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -223,7 +228,7 @@ function Extension() {
     try {
       // First, we need to get the variant ID for the product
       const { data } = await query(
-        `query {
+        `query {    
           node(id: "${productId}") {
             ... on Product {
               title
@@ -305,44 +310,127 @@ function Extension() {
     return null;
   }
 
+  const layoutSelectted = "Default";
+
   // Render upsell products
   return (
     <BlockStack>
       <Text size="medium" level={2} emphasis="bold">
         You may also like
       </Text>
-      <BlockStack border="base" cornerRadius="base" padding="base">
-        {products.map((product) => (
-          <View
-            key={product.id}
-            borderRadius="base"
-            alignment="center"
-            direction="horizontal"
-          >
-            <InlineLayout spacing="base" columns={["12%", "fill", "14%"]}>
-              <Image
-                source={product.image}
-                accessibilityLabel={product.title}
-                cornerRadius="base"
-                border="base"
-                aspectRatio={1}
-                fit="cover"
-                width={80}
-                height={80}
-              />
-              <BlockStack spacing="none">
-                <Text size="medium">{product.title}</Text>
-                <Text size="small" appearance="subdued">
-                  {product.price}  
-                </Text>
-              </BlockStack>
-              <Button appearance="monochrome" kind="secondary" onPress={() => handleAdd(product.id)}>
-                Add
-              </Button>  
-            </InlineLayout>
-          </View>
-        ))}
-      </BlockStack>
+      {layout === "column" ? (
+        <ColumnLayout handleAdd={handleAdd} products={products} />
+      ) : (
+        <>
+          <BlockStack border="base" cornerRadius="base" padding="base">
+            {products.map((product) => (
+              <View
+                key={product.id}
+                borderRadius="base"
+                alignment="center"
+                direction="horizontal"
+              >  
+                <InlineLayout spacing="base" columns={["12%", "fill"]}>
+                  <Image
+                    source={product.image}
+                    accessibilityLabel={product.title}
+                    cornerRadius="base"
+                    border="base"
+                    aspectRatio={1}
+                    fit="cover"
+                    width={80}
+                    height={80}
+                  />
+                  <InlineLayout
+                    blockAlignment="center"
+                    spacing="none"
+                    columns={["fill", "70px"]}
+                  >
+                    <BlockLayout blockAlignment="center" spacing="none">
+                      {/* <View> */}
+                      <Heading size="medium">{product.title}</Heading>
+                      <Text size="small" appearance="subdued">
+                        {product.price}
+                      </Text>
+                      {/* </View> */}
+                    </BlockLayout>
+                    <Button
+                      appearance="monochrome"
+                      kind="secondary"
+                      onPress={() => handleAdd(product.id)}
+                    >
+                      Add
+                    </Button>
+                  </InlineLayout>
+                </InlineLayout>
+              </View>
+            ))}
+          </BlockStack>
+        </>
+      )}
     </BlockStack>
+  );
+}
+
+function ColumnLayout({ products, handleAdd }) {
+  // Placeholder data for two products based on the image
+  const productsData = [
+    {
+      id: products[0].id,
+      imageSrc: products[0].image,
+      title: products[0].title,
+      originalPrice: products[0].price,
+      discountedPrice: products[0].price, // Assuming no discount for now
+      discountText: "",
+    },
+    {
+      id: products[1].id,
+      imageSrc: products[1].image,
+      title: products[1].title,
+      originalPrice: products[1].price,
+      discountedPrice: products[1].price, // Assuming no discount for now
+      discountText: "",
+    },
+  ];
+
+  return (
+    <InlineLayout
+      columns={["fill", "fill"]}
+      spacing="base"
+      // border="base"
+      // padding="base"
+      // borderRadius="base"
+    >
+      {productsData.map((product) => (
+        <View key={product.id}>
+          <BlockStack spacing="base">
+            <View border="base" cornerRadius="base">
+              <Image
+                source={product.imageSrc}
+                accessibilityLabel={product.title}
+                aspectRatio={1} // Adjust as needed
+                fit="cover"
+                cornerRadius="base"
+              />
+            </View>
+            <BlockStack maxBlockSize={`100%`} spacing="none">
+              <Text size="medium" emphasis="bold">
+                {product.title}
+              </Text>
+              <Text appearance="subdued" strikethrough>
+                {product.originalPrice}
+              </Text>
+            </BlockStack>
+            <Button
+              appearance="monochrome"
+              kind="primary"
+              onPress={() => handleAdd(product.id)} // This now correctly calls the passed handleAdd
+            >
+              ADD
+            </Button>
+          </BlockStack>
+        </View>
+      ))}
+    </InlineLayout>
   );
 }

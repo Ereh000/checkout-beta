@@ -51,3 +51,12 @@ key = "settings"
 # name = "Banner title"
 # description = "Enter a title for the banner"
 
+ [extensions.settings]
+    [[extensions.settings.fields]]
+    key = "layout"
+    type = "single_line_text_field"
+    name = "Layout"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"default\", \"column\"]"
+
