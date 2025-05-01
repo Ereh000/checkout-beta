@@ -9,7 +9,6 @@ import {
   Text,
   Button,
   Select,
-  Box,
   Icon,
   Tooltip,
   Popover,
@@ -18,125 +17,112 @@ import {
 } from "@shopify/polaris";
 import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import { json, useFetcher } from "@remix-run/react";
+import { json, useFetcher, useLoaderData } from "@remix-run/react";
 
-// Add action function to handle form submission
-export async function action({ request }) {
+export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-
-  console.log("Form Data:", formData);
-
-  // Extract color values from form data
-  const colorSettings = {
-    scheme1: {
-      background: formData.get("scheme1Background"),
-      foreground: formData.get("scheme1Foreground"),
-      accent: formData.get("scheme1Accent"),
-    },
-    primaryButton: {
-      background: formData.get("primaryButtonBackground"),
-      foreground: formData.get("primaryButtonForeground"),
-      accent: formData.get("primaryButtonAccent"),
-      backgroundHover: formData.get("primaryButtonBackgroundHover"),
-      foregroundHover: formData.get("primaryButtonForegroundHover"),
-      accentHover: formData.get("primaryButtonAccentHover"),
-    },
-    secondaryButton: {
-      background: formData.get("secondaryButtonBackground"),
-      foreground: formData.get("secondaryButtonForeground"),
-      accent: formData.get("secondaryButtonAccent"),
-    },
-    control: {
-      background: formData.get("controlBackground"),
-      foreground: formData.get("controlForeground"),
-      accent: formData.get("controlAccent"),
-      border: formData.get("controlBorder"),
-    },
-  };
-
-  try {
-    // fetch checkout profile id
-    const checkoutProfileId = await admin.graphql(`
-        query {
+  // fetch checkout profile id
+  const checkoutProfileId = await admin.graphql(`
+    query {
         checkoutProfiles(first: 1, query: "is_published:true") {
             nodes{
             id
             }
         }
-        }`);
+    }
+  `);
 
-    const checkoutProfileIdData = await checkoutProfileId.json();
-    const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
-    console.log("checkoutId", checkoutId);
+  const checkoutProfileIdData = await checkoutProfileId.json();
+  const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
+  console.log("checkoutId", checkoutId);
 
-    return true;
-
-    // Update checkout appearance via GraphQL
-    const response = await admin.graphql(
-      `
-        mutation checkoutBrandingUpsert($checkoutBrandingInput: CheckoutBrandingInput!, $checkoutProfileId: ID!) {
-          checkoutBrandingUpsert(
-            checkoutBrandingInput: $checkoutBrandingInput,
-            checkoutProfileId: $checkoutProfileId
-          ) {
-            checkoutBranding {
-              designSystem {
-                colors {
-                  schemes {
-                    scheme1 {
-                      base {
-                        background
-                        text
-                      }
-                      primaryButton {
-                        background
-                        text
-                      }
-                    }
+  // fetch checkout profile stylings -----
+  const checkoutProfileStylings = await admin.graphql(
+    `
+   query GetCheckoutBranding($checkoutProfileId: ID!) {
+      checkoutBranding(checkoutProfileId: $checkoutProfileId) {
+        designSystem {
+          colors{
+            schemes{
+              scheme1{
+                base{
+                  background
+                  text
+                  accent
+                }
+                control{
+                  background
+                  border
+                  accent
+                  text
+                }
+                primaryButton{
+                  background
+                  text
+                  accent
+                  hover{
+                    background
+                    text
+                    accent
+                  }
+                }
+                secondaryButton{
+                  background
+                  text
+                  accent
+                  hover{
+                    background
                   }
                 }
               }
             }
-            userErrors {
-              field
-              message
-            }
           }
         }
-        `,
-      {
-        variables: {
-          checkoutProfileId: checkoutId,
-          checkoutBrandingInput: {
-            designSystem: {
-              colors: {
-                schemes: colorSettings,
-              },
-            },
-          },
-        },
-      },
-    );
+      }
+    }`,
+    {
+      variables: { checkoutProfileId: checkoutId },
+    },
+  );
 
-    const responseData = await response.json();
+  const checkoutProfileStylingsData = await checkoutProfileStylings.json();
+  console.log(
+    "checkoutProfileStylingsData",
+    checkoutProfileStylingsData.data.checkoutBranding,
+  );
 
-    if (responseData.data?.checkoutBrandingUpsert?.userErrors?.length > 0) {
-      return json({
-        success: false,
-        errors: responseData.data.checkoutBrandingUpsert.userErrors,
-      });
-    }
-
-    return json({ success: true });
-  } catch (error) {
-    console.error("Error updating checkout branding:", error);
-    return json({ success: false, error: error.message });
+  const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
+  if (!checkoutBranding || !checkoutBranding.designSystem) {
+    console.error("Checkout profile not found or missing design system");
+    return json({
+      success: false,
+      errors: ["Checkout profile not found or missing design system"],
+      checkoutProfileStylingsDataColors: null,
+    });
   }
+
+  const checkoutProfileStylingsDataColors =
+    checkoutBranding.designSystem.colors;
+
+  return json({
+    success: true,
+    checkoutProfileStylingsDataColors,
+  });
 }
 
 // Main Customization Component
 export default function CustomizationSettings() {
+  const { checkoutProfileStylingsDataColors } = useLoaderData();
+  console.log(
+    "checkoutProfileStylingsDataColors",
+    checkoutProfileStylingsDataColors,
+  );
+
+  const scheme1 = checkoutProfileStylingsDataColors
+    ? checkoutProfileStylingsDataColors.schemes.scheme1
+    : null;
+  // console.log("scheme1", scheme1);
+
   const [selectedProfile, setSelectedProfile] = useState("default");
   const fetcher = useFetcher();
   const [successMessage, setSuccessMessage] = useState("");
@@ -144,22 +130,34 @@ export default function CustomizationSettings() {
 
   // Form state to track all color values
   const [colorValues, setColorValues] = useState({
-    scheme1Background: "#ffdfdf",
-    scheme1Foreground: "#545454",
-    scheme1Accent: "#1773b0",
-    primaryButtonBackground: "#1773b0",
-    primaryButtonForeground: "#ffffff",
-    primaryButtonAccent: "",
-    primaryButtonBackgroundHover: "#2092e0",
-    primaryButtonForegroundHover: "#ffffff",
-    primaryButtonAccentHover: "",
-    secondaryButtonBackground: "#ffffff",
-    secondaryButtonForeground: "#1773b0",
-    secondaryButtonAccent: "",
-    controlBackground: "#ffffff",
-    controlForeground: "#545454",
-    controlAccent: "#1773b0",
-    controlBorder: "#d9d9d9",
+    scheme1Background: scheme1 ? scheme1.base.background : "#ffffff",
+    scheme1Foreground: scheme1 ? scheme1.base.text : "#545454",
+    scheme1Accent: scheme1 && scheme1.base.accent ? scheme1.base.accent : "#1773b0",
+    primaryButtonBackground: scheme1
+      ? scheme1.primaryButton.background
+      : "#1773b0",
+    primaryButtonForeground: scheme1 ? scheme1.primaryButton.text : "#ffffff",
+    primaryButtonAccent: scheme1 ? scheme1.primaryButton.accent : "#1773b0",
+    primaryButtonBackgroundHover: scheme1
+      ? scheme1.primaryButton.hover.background
+      : "#2092e0",
+    primaryButtonForegroundHover: scheme1
+      ? scheme1.primaryButton.hover.text
+      : "#ffffff",
+    primaryButtonAccentHover: scheme1
+      ? scheme1.primaryButton.hover.accent
+      : "#1773b0",
+    secondaryButtonBackground: scheme1
+      ? scheme1.secondaryButton.background
+      : "#ffffff",
+    secondaryButtonForeground: scheme1
+      ? scheme1.secondaryButton.text
+      : "#1773b0",
+    secondaryButtonAccent: scheme1 ? scheme1.secondaryButton.accent : "#1773b0",
+    controlBackground: scheme1 ? scheme1.control.background : "#ffffff",
+    controlForeground: scheme1 ? scheme1.control.text : "#545454",
+    controlAccent: scheme1 ? scheme1.control.accent : "#1773b0",
+    controlBorder: scheme1 ? scheme1.control.border : "#d9d9d9",
   });
 
   // Update color value handler
@@ -171,7 +169,7 @@ export default function CustomizationSettings() {
   };
 
   const handleSelectChange = useCallback(
-    (value) => setSelectedProfile(value),
+    (value) => setSelectedProfile(value),  
     [],
   );
 
@@ -184,7 +182,15 @@ export default function CustomizationSettings() {
       formData.append(key, value);
     });
 
-    fetcher.submit(formData, { method: "post" });
+    fetcher.submit(formData, { method: "post", action: "/api/customization" });
+  };
+
+  // Add reset handler
+  const handleReset = () => {
+    fetcher.submit(
+      { action: "reset" },
+      { method: "post", action: "/api/customization" },
+    );
   };
 
   // Handle response from action
@@ -213,9 +219,11 @@ export default function CustomizationSettings() {
       <BlockStack gap="500">
         {/* Success/Error Messages */}
         {successMessage && (
-          <Banner tone="success" onDismiss={() => setSuccessMessage("")}>
-            {successMessage}
-          </Banner>
+          <Banner
+            title={successMessage}
+            tone="success"
+            onDismiss={() => setSuccessMessage("")}
+          ></Banner>
         )}
         {errorMessage && (
           <Banner tone="critical" onDismiss={() => setErrorMessage("")}>
@@ -232,7 +240,7 @@ export default function CustomizationSettings() {
             onChange={handleSelectChange}
             value={selectedProfile}
           />
-          <Button onClick={() => console.log("Reset to default")}>
+          <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
             Reset to default
           </Button>
           <Button
@@ -560,38 +568,43 @@ function ColorInput({ label, value, helpText, onChange }) {
             }
           />
         </div>
-        <Popover
-          active={popoverActive}
-          activator={
-            <div
-              onClick={togglePopoverActive}
-              style={{
-                cursor: "pointer",
-                width: "24px",
-                height: "24px",
-                borderRadius: "50%",
-                border: "1px solid var(--p-border-subdued)",
-                backgroundColor:
-                  isValidHex && fieldValue
-                    ? fieldValue
-                    : "var(--p-surface-disabled)",
-                transition: "border-color 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--p-border-hovered)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--p-border-subdued)";
-              }}
-            />
-          }
-          onClose={togglePopoverActive}
-          preferredAlignment="right"
+        <div
+          className="pop_box"
+          style={{ border: "1px solid #ccc", borderRadius: "50%" }}
         >
-          <div style={{ padding: "22px" }}>
-            <ColorPicker onChange={handleColorChange} color={color} />
-          </div>
-        </Popover>
+          <Popover
+            active={popoverActive}
+            activator={
+              <div
+                onClick={togglePopoverActive}
+                style={{
+                  cursor: "pointer",
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  border: "1px solid var(--p-border-subdued)",
+                  backgroundColor:
+                    isValidHex && fieldValue
+                      ? fieldValue
+                      : "var(--p-surface-disabled)",
+                  transition: "border-color 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--p-border-hovered)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--p-border-subdued)";
+                }}
+              />
+            }
+            onClose={togglePopoverActive}
+            preferredAlignment="right"
+          >
+            <div style={{ padding: "22px" }}>
+              <ColorPicker onChange={handleColorChange} color={color} />
+            </div>
+          </Popover>
+        </div>
       </InlineStack>
     </BlockStack>
   );

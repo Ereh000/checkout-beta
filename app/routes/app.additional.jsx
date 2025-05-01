@@ -1,331 +1,611 @@
-// _index.jsx
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Page,
-  Layout,
   Card,
-  Button,
+  BlockStack,
+  InlineStack,
+  InlineGrid,
+  TextField,
   Text,
-  TextContainer,
-  Grid,
+  Button,
+  Select,
   Icon,
-  MediaCard,
-  VideoThumbnail,
-  BlockStack, // Added BlockStack
-  InlineStack, // Added InlineStack
-  Box,
-  Banner, // Added Box for icon styling
+  Tooltip,
+  Popover,
+  ColorPicker,
+  Banner,
 } from "@shopify/polaris";
-
-import {
-  AlertCircleIcon,
-  CartUpIcon,
-  CartIcon,
-  CreditCardSecureIcon,
-  DeliveryFilledIcon,
-  GiftCardIcon,
-  OrderFulfilledIcon,
-  ShareIcon,
-  StoreIcon,
-  ToggleOffIcon,
-  AppsIcon,
-} from "@shopify/polaris-icons";
+import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import { json, useLoaderData } from "@remix-run/react";
+import { json, useFetcher, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }) {
-  const { admin, session } = await authenticate.admin(request);
-
-  const response = await admin.graphql(`
-    query GetCheckoutProfile {
-      checkoutProfiles(first: 1, query: "is_published:true") {
-        edges {
-          node {
+  const { admin } = await authenticate.admin(request);
+  // fetch checkout profile id
+  const checkoutProfileId = await admin.graphql(`
+    query {
+        checkoutProfiles(first: 1, query: "is_published:true") {
+            nodes{
             id
-            name
-          }
+            }
         }
-      }
     }
   `);
 
-  const data = await response.json();
-  const checkoutProfile = data.data.checkoutProfiles.edges[0].node;
-  console.log("checkoutProfile", checkoutProfile);
+  const checkoutProfileIdData = await checkoutProfileId.json();
+  const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
+  console.log("checkoutId", checkoutId);
 
-  // const checkoutProfileId = checkoutProfile.id;
-  // Extract the numeric ID from the GID
-  const profileId = checkoutProfile.id.split("/").pop();
+  // fetch checkout profile stylings -----
+  const checkoutProfileStylings = await admin.graphql(
+    `
+   query GetCheckoutBranding($checkoutProfileId: ID!) {
+      checkoutBranding(checkoutProfileId: $checkoutProfileId) {
+        designSystem {
+          colors{
+            schemes{
+              scheme1{
+                base{
+                  background
+                  text
+                  accent
+                }
+                control{
+                  background
+                  border
+                  accent
+                  text
+                }
+                primaryButton{
+                  background
+                  text
+                  accent
+                  hover{
+                    background
+                    text
+                    accent
+                  }
+                }
+                secondaryButton{
+                  background
+                  text
+                  accent
+                  hover{
+                    background
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }`,
+    {
+      variables: { checkoutProfileId: checkoutId },
+    },
+  );
+
+  const checkoutProfileStylingsData = await checkoutProfileStylings.json();
+  console.log(
+    "checkoutProfileStylingsData",
+    checkoutProfileStylingsData.data.checkoutBranding,
+  );
+
+  const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
+  if (!checkoutBranding || !checkoutBranding.designSystem) {
+    console.error("Checkout profile not found or missing design system");
+    return json({
+      success: false,
+      errors: ["Checkout profile not found or missing design system"],
+      checkoutProfileStylingsDataColors: null,
+    });
+  }
+
+  const checkoutProfileStylingsDataColors =
+    checkoutBranding.designSystem.colors;
 
   return json({
-    checkoutProfileId: profileId,
-    shop: session.shop.split(".myshopify.com")[0], // Get shop name without domain
+    success: true,
+    checkoutProfileStylingsDataColors,
   });
 }
 
-// import { Redirect
-
-export default function Index() {
-  return (
-    <>
-      <Page>
-        <Banner
-          title="Upgrade Plan to get all features"
-          action={{
-            content: "Upgrade Now",
-            url: "/app/subscription-manage",
-            variant: "primary",
-          }}
-          tone="info"
-        >
-        </Banner>
-        <br />
-        <br />
-
-        <>
-          <Grid>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
-              <PaymentAndShippingCustomizations />
-            </Grid.Cell>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
-              {/* <br />
-              <br /> */}
-              <MediaCard
-                portrait
-                title="Getting Started with Checkout Plus"
-                primaryAction={{
-                  content: "Learn more",
-                  onAction: () => {},
-                }}
-                description="Thank you for using Checkout Plus. Here is an in depth guide on how to get customize your checkout using Checkout Plus."
-                popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
-              >
-                <VideoThumbnail
-                  videoLength={80}
-                  thumbnailUrl="https://94m.app/images/Getting-Started-Thumbnail.webp"
-                  onClick={() => console.log("clicked")}
-                />
-              </MediaCard>
-            </Grid.Cell>
-            {/* row 2 */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 312, lg: 12, xl: 12 }}>
-              <ExtensionsSection />
-            </Grid.Cell>
-          </Grid>
-        </>
-        <br />
-        <br />
-      </Page>
-    </>
+// Main Customization Component
+export default function CustomizationSettings() {
+  const { checkoutProfileStylingsDataColors } = useLoaderData();
+  console.log(
+    "checkoutProfileStylingsDataColors",
+    checkoutProfileStylingsDataColors,
   );
-}
 
-export function PaymentAndShippingCustomizations() {
-  return (
-    // <Card>
-    <BlockStack gap="400">
-      <Text variant="headingLg" as="h2">
-        Payment & Shipping Customizations
-      </Text>
-      <BlockStack gap="300">
-        {/* Payment Customizations */}
-        <Card>
-          <InlineStack
-            align="space-between"
-            blockAlign="center"
-            justify="space-between"
-            wrap={false}
-          >
-            <InlineStack gap="400" blockAlign="center" wrap={false}>
-              <Icon source={CreditCardSecureIcon} />
-              <BlockStack gap="100">
-                <Text variant="bodyMd" as="p" fontWeight="semibold">
-                  Payment Customizations
-                </Text>
-                <Text variant="bodySm" as="p" tone="subdued">
-                  Hide, modify or reorder your payment options at checkout
-                </Text>
-              </BlockStack>
-            </InlineStack>
-            <Button variant="primary" url="/app/payment-customization">
-              Manage
-            </Button>
-          </InlineStack>
-        </Card>
+  const scheme1 = checkoutProfileStylingsDataColors
+    ? checkoutProfileStylingsDataColors.schemes.scheme1
+    : null;
+  // console.log("scheme1", scheme1);
 
-        {/* Shipping Customizations */}
-        <Card>
-          <InlineStack
-            align="space-between"
-            blockAlign="center"
-            justify="space-between"
-            wrap={false}
-          >
-            <InlineStack gap="400" blockAlign="center" wrap={false}>
-              <Icon source={DeliveryFilledIcon} />
-              <BlockStack gap="100">
-                <Text variant="bodyMd" as="p" fontWeight="semibold">
-                  Shipping Customizations
-                </Text>
-                <Text variant="bodySm" as="p" tone="subdued">
-                  Add a message or hide your shipping methods
-                </Text>
-              </BlockStack>
-            </InlineStack>
-            <Button url="/app/shipping-customizations" variant="primary">
-              Manage
-            </Button>
-          </InlineStack>
-        </Card>
+  const [selectedProfile, setSelectedProfile] = useState("default");
+  const fetcher = useFetcher();
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-        {/* Order Validations - Uncomment if needed later
-          <Card background="bg-surface-secondary">
-            <InlineStack align="center" blockAlign="center" justify="space-between" wrap={false}>
-              <InlineStack gap="400" blockAlign="center" wrap={false}>
-                <Icon source={AlertCircleIcon} color="critical" />
-                <BlockStack gap="100">
-                  <Text variant="bodyMd" as="p" fontWeight="semibold">
-                    Order Validations
-                  </Text>
-                  <Text variant="bodySm" as="p" tone="subdued">
-                    Block suspicious orders based on address, customer tags, etc
-                  </Text>
-                </BlockStack>
-              </InlineStack>
-              <Button variant="primary" disabled>Coming Soon</Button>
-            </InlineStack>
-          </Card>
-          */}
-      </BlockStack>
-    </BlockStack>
-    // </Card>
-  );
-}
+  // Form state to track all color values
+  const [colorValues, setColorValues] = useState({
+    scheme1Background: scheme1 ? scheme1.base.background : "#ffffff",
+    scheme1Foreground: scheme1 ? scheme1.base.text : "#545454",
+    scheme1Accent: scheme1 && scheme1.base.accent ? scheme1.base.accent : "#1773b0",
+    primaryButtonBackground: scheme1
+      ? scheme1.primaryButton.background
+      : "#1773b0",
+    primaryButtonForeground: scheme1 ? scheme1.primaryButton.text : "#ffffff",
+    primaryButtonAccent: scheme1 ? scheme1.primaryButton.accent : "#1773b0",
+    primaryButtonBackgroundHover: scheme1
+      ? scheme1.primaryButton.hover.background
+      : "#2092e0",
+    primaryButtonForegroundHover: scheme1
+      ? scheme1.primaryButton.hover.text
+      : "#ffffff",
+    primaryButtonAccentHover: scheme1
+      ? scheme1.primaryButton.hover.accent
+      : "#1773b0",
+    secondaryButtonBackground: scheme1
+      ? scheme1.secondaryButton.background
+      : "#ffffff",
+    secondaryButtonForeground: scheme1
+      ? scheme1.secondaryButton.text
+      : "#1773b0",
+    secondaryButtonAccent: scheme1 ? scheme1.secondaryButton.accent : "#1773b0",
+    controlBackground: scheme1 ? scheme1.control.background : "#ffffff",
+    controlForeground: scheme1 ? scheme1.control.text : "#545454",
+    controlAccent: scheme1 ? scheme1.control.accent : "#1773b0",
+    controlBorder: scheme1 ? scheme1.control.border : "#d9d9d9",
+  });
 
-function ExtensionsSection() {
-  const { checkoutProfileId, shop } = useLoaderData();
-
-  const openCheckoutEditor = (page) => {
-    const url = `https://admin.shopify.com/store/${shop}/settings/checkout/editor/profiles/${checkoutProfileId}?page=${page}`;
-    window.open(url, "_blank");
+  // Update color value handler
+  const handleColorChange = (field, value) => {
+    setColorValues((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  // Helper component for individual extension cards
-  const ExtensionCard = ({
-    icon,
-    title,
-    description,
-    buttonLabel,
-    onAction,
-    buttonUrl,
-    buttonPlain,
-  }) => (
-    <Card>
-      <BlockStack gap="300">
-        <Box
-          borderWidth="025"
-          borderColor="border"
-          borderRadius="200"
-          padding="300"
-          width="fit-content"
-        >
-          <Icon source={icon} />
-        </Box>
-        <BlockStack gap="100">
-          <Text variant="bodyMd" as="p" fontWeight="semibold">
-            {title}
-          </Text>
-          <Text variant="bodySm" as="p" tone="subdued">
-            {description}
-          </Text>
-        </BlockStack>
-        <Button
-          variant="primary"
-          onClick={onAction}
-          url={buttonUrl}
-          plain={buttonPlain}
-          fullWidth // Make button take full width of its container if desired
-        >
-          {buttonLabel}
-        </Button>
+  const handleSelectChange = useCallback(
+    (value) => setSelectedProfile(value),
+    [],
+  );
+
+  // Handle form submission
+  const handleSaveColors = () => {
+    const formData = new FormData();
+
+    // Add all color values to form data
+    Object.entries(colorValues).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    fetcher.submit(formData, { method: "post", action: "/api/customization" });
+  };
+
+  // Add reset handler
+  const handleReset = () => {
+    fetcher.submit(
+      { action: "reset" },
+      { method: "post", action: "/api/customization" },
+    );
+  };
+
+  // Handle response from action
+  useEffect(() => {
+    if (fetcher.data) {
+      if (fetcher.data.success) {
+        setSuccessMessage("Checkout colors updated successfully!");
+        setTimeout(() => setSuccessMessage(""), 3000);
+      } else {
+        setErrorMessage(
+          fetcher.data.error || "Failed to update checkout colors",
+        );
+        setTimeout(() => setErrorMessage(""), 5000);
+      }
+    }
+  }, [fetcher.data]);
+
+  const profileOptions = [
+    { label: "Default Profile", value: "default" },
+    { label: "Profile 1", value: "profile1" },
+    // Add other profiles here
+  ];
+
+  return (
+    <Page>
+      <BlockStack gap="500">
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <Banner
+            title={successMessage}
+            tone="success"
+            onDismiss={() => setSuccessMessage("")}
+          ></Banner>
+        )}
+        {errorMessage && (
+          <Banner tone="critical" onDismiss={() => setErrorMessage("")}>
+            {errorMessage}
+          </Banner>
+        )}
+
+        {/* Top Controls */}
+        <InlineStack align="end" gap="200">
+          <Select
+            label="Select profile"
+            labelInline
+            options={profileOptions}
+            onChange={handleSelectChange}
+            value={selectedProfile}
+          />
+          <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
+            Reset to default
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveColors}
+            loading={fetcher.state !== "idle"}
+          >
+            Save
+          </Button>
+        </InlineStack>
+
+        {/* Settings Card */}
+        <Card>
+          <BlockStack gap="500">
+            {/* Scheme 1 Section */}
+            <BlockStack gap="300">
+              <Text variant="headingMd" as="h2">
+                Scheme 1 (Left side)
+              </Text>
+              <Text as="p" color="subdued">
+                Use for the main content area on the left side
+              </Text>
+              <InlineGrid columns={3} gap="400">
+                <ColorInput
+                  label="Background"
+                  value={colorValues.scheme1Background}
+                  onChange={(value) =>
+                    handleColorChange("scheme1Background", value)
+                  }
+                />
+                <ColorInput
+                  label="Foreground (Text)"
+                  value={colorValues.scheme1Foreground}
+                  onChange={(value) =>
+                    handleColorChange("scheme1Foreground", value)
+                  }
+                />
+                <ColorInput
+                  label="Accent (Icons & indicators)"
+                  value={colorValues.scheme1Accent}
+                  onChange={(value) =>
+                    handleColorChange("scheme1Accent", value)
+                  }
+                />
+              </InlineGrid>
+            </BlockStack>
+
+            {/* Primary Button Section */}
+            <BlockStack gap="300">
+              <InlineStack gap="100" blockAlign="center" wrap={false}>
+                <Text variant="headingMd" as="h2">
+                  Primary button
+                </Text>
+                <Tooltip content="Use for primary action buttons">
+                  <Icon source={QuestionCircleIcon} color="base" />
+                </Tooltip>
+              </InlineStack>
+              <Text as="p" color="subdued">
+                Use for primary action buttons
+              </Text>
+              <InlineGrid columns={3} gap="400">
+                <ColorInput
+                  label="Background"
+                  value={colorValues.primaryButtonBackground}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonBackground", value)
+                  }
+                />
+                <ColorInput
+                  label="Foreground (Text)"
+                  value={colorValues.primaryButtonForeground}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonForeground", value)
+                  }
+                />
+                <ColorInput
+                  label="Accent (Icons & indicators)"
+                  value={colorValues.primaryButtonAccent}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonAccent", value)
+                  }
+                />
+              </InlineGrid>
+              <InlineGrid columns={3} gap="400">
+                <ColorInput
+                  label="Background (Hover)"
+                  value={colorValues.primaryButtonBackgroundHover}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonBackgroundHover", value)
+                  }
+                />
+                <ColorInput
+                  label="Foreground (Hover)"
+                  value={colorValues.primaryButtonForegroundHover}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonForegroundHover", value)
+                  }
+                />
+                <ColorInput
+                  label="Accent (Hover)"
+                  value={colorValues.primaryButtonAccentHover}
+                  onChange={(value) =>
+                    handleColorChange("primaryButtonAccentHover", value)
+                  }
+                />
+              </InlineGrid>
+            </BlockStack>
+
+            {/* Secondary Button Section */}
+            <BlockStack gap="300">
+              <Text variant="headingMd" as="h2">
+                Secondary button
+              </Text>
+              <Text as="p" color="subdued">
+                Use for secondary action buttons
+              </Text>
+              <InlineGrid columns={3} gap="400">
+                <ColorInput
+                  label="Background"
+                  value={colorValues.secondaryButtonBackground}
+                  onChange={(value) =>
+                    handleColorChange("secondaryButtonBackground", value)
+                  }
+                />
+                <ColorInput
+                  label="Foreground (Text)"
+                  value={colorValues.secondaryButtonForeground}
+                  onChange={(value) =>
+                    handleColorChange("secondaryButtonForeground", value)
+                  }
+                />
+                <ColorInput
+                  label="Accent (Icons & indicators)"
+                  value={colorValues.secondaryButtonAccent}
+                  onChange={(value) =>
+                    handleColorChange("secondaryButtonAccent", value)
+                  }
+                />
+              </InlineGrid>
+            </BlockStack>
+
+            {/* Control Color Section */}
+            <BlockStack gap="300">
+              <Text variant="headingMd" as="h2">
+                Control color
+              </Text>
+              <Text as="p" color="subdued">
+                Use for form controls (such as input fields, checkboxes, and
+                dropdowns)
+              </Text>
+              <InlineGrid columns={2} gap="400">
+                <ColorInput
+                  label="Background"
+                  value={colorValues.controlBackground}
+                  onChange={(value) =>
+                    handleColorChange("controlBackground", value)
+                  }
+                />
+                <ColorInput
+                  label="Foreground (Text)"
+                  value={colorValues.controlForeground}
+                  onChange={(value) =>
+                    handleColorChange("controlForeground", value)
+                  }
+                />
+                <ColorInput
+                  label="Accent (Icons & indicators)"
+                  value={colorValues.controlAccent}
+                  onChange={(value) =>
+                    handleColorChange("controlAccent", value)
+                  }
+                />
+                <ColorInput
+                  label="Border"
+                  value={colorValues.controlBorder}
+                  onChange={(value) =>
+                    handleColorChange("controlBorder", value)
+                  }
+                />
+              </InlineGrid>
+            </BlockStack>
+          </BlockStack>
+        </Card>
       </BlockStack>
-    </Card>
+      <br />
+      <br />
+    </Page>
+  );
+}
+
+// Helper component for Color Input Field
+function ColorInput({ label, value, helpText, onChange }) {
+  const [fieldValue, setFieldValue] = useState(value);
+  const [popoverActive, setPopoverActive] = useState(false);
+  const [color, setColor] = useState({
+    hue: 0,
+    brightness: 1,
+    saturation: 1,
+  });
+
+  // Basic validation for hex color
+  const isValidHex = /^$|^#([0-9A-Fa-f]{3}){1,2}$/.test(fieldValue);
+
+  const togglePopoverActive = useCallback(
+    () => setPopoverActive((active) => !active),
+    [],
+  );
+
+  const handleValueChange = useCallback(
+    (newValue) => {
+      setFieldValue(newValue);
+      if (onChange) onChange(newValue);
+    },
+    [onChange],
+  );
+
+  const handleColorChange = useCallback(
+    (color) => {
+      setColor(color);
+
+      // Convert HSB to hex
+      const { hue, brightness, saturation } = color;
+
+      let r, g, b;
+
+      const h = hue / 360;
+      const s = saturation;
+      const v = brightness;
+
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+
+      switch (i % 6) {
+        case 0:
+          r = v;
+          g = t;
+          b = p;
+          break;
+        case 1:
+          r = q;
+          g = v;
+          b = p;
+          break;
+        case 2:
+          r = p;
+          g = v;
+          b = t;
+          break;
+        case 3:
+          r = p;
+          g = q;
+          b = v;
+          break;
+        case 4:
+          r = t;
+          g = p;
+          b = v;
+          break;
+        case 5:
+          r = v;
+          g = p;
+          b = q;
+          break;
+      }
+
+      const toHex = (x) => {
+        const hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      };
+
+      const hexColor = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      setFieldValue(hexColor);
+      if (onChange) onChange(hexColor);
+    },
+    [onChange],
+  );
+
+  const activator = (
+    <div
+      onClick={togglePopoverActive}
+      style={{
+        cursor: "pointer",
+        width: "24px",
+        height: "24px",
+        borderRadius: "50%",
+        border: "1px solid var(--p-border-subdued)",
+        backgroundColor:
+          isValidHex && fieldValue ? fieldValue : "var(--p-surface-disabled)",
+        transition: "border-color 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--p-border-hovered)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--p-border-subdued)";
+      }}
+    />
   );
 
   return (
-    // <Card>
-    <BlockStack gap="400">
-      <Text variant="headingLg" as="h2">
-        Extensions
-      </Text>
-      <Grid>
-        {/* Checkout Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={CartIcon}
-            title="Checkout Extensions"
-            description="Custom messages, gift message, trust badges, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("checkout")}
-            buttonPlain // Use plain style for Get Started
+    <BlockStack gap="100">
+      <InlineStack gap="100" blockAlign="center" wrap={false}>
+        <Text as="p" variant="bodyMd">
+          {label}
+        </Text>
+        {helpText && (
+          <Tooltip content={helpText}>
+            <Icon source={QuestionCircleIcon} color="base" />
+          </Tooltip>
+        )}
+      </InlineStack>
+      <InlineStack gap="200" wrap={false} blockAlign="center">
+        <div style={{ flexGrow: 1 }}>
+          <TextField
+            label={label}
+            labelHidden
+            value={fieldValue}
+            onChange={handleValueChange}
+            autoComplete="off"
+            error={
+              !isValidHex && fieldValue !== "" ? "Invalid hex color" : undefined
+            }
           />
-        </Grid.Cell>
-
-        {/* Thank You Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={StoreIcon}
-            title="Thank You Extensions"
-            description="Custom messages, share social media, contact info, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("thank-you")}
-            buttonPlain // Use plain style for Get Started
-          />
-        </Grid.Cell>
-
-        {/* Order Status Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={OrderFulfilledIcon}
-            title="Order Status Extensions"
-            description="Custom messages, share social media, contact info, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("order-status")}
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
-
-        {/* Upsells */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={CartUpIcon}
-            title="Upsells"
-            description="Offer advanced customizations like upsells"
-            buttonLabel="Manage"
-            buttonUrl="/app/manage-upsell"
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
-
-        {/* Explore more extension */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={AppsIcon}
-            title="Explore more extensions"
-            description="Browse more extensions for your store"
-            buttonLabel="See more options"
-            onAction={() => openCheckoutEditor("checkout")} // Link to checkout editor for exploring
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
-
-        {/* Add placeholders for future extensions if needed */}
-        {/*
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-             <Card><BlockStack gap="300">...</BlockStack></Card>
-          </Grid.Cell>
-          */}
-      </Grid>
+        </div>
+        <div
+          className="pop_box"
+          style={{ border: "1px solid #ccc", borderRadius: "50%" }}
+        >
+          <Popover
+            active={popoverActive}
+            activator={
+              <div
+                onClick={togglePopoverActive}
+                style={{
+                  cursor: "pointer",
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  border: "1px solid var(--p-border-subdued)",
+                  backgroundColor:
+                    isValidHex && fieldValue
+                      ? fieldValue
+                      : "var(--p-surface-disabled)",
+                  transition: "border-color 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--p-border-hovered)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--p-border-subdued)";
+                }}
+              />
+            }
+            onClose={togglePopoverActive}
+            preferredAlignment="right"
+          >
+            <div style={{ padding: "22px" }}>
+              <ColorPicker onChange={handleColorChange} color={color} />
+            </div>
+          </Popover>
+        </div>
+      </InlineStack>
     </BlockStack>
-    // </Card>
   );
 }

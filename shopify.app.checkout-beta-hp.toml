@@ -3,7 +3,7 @@
 client_id = "afe2b2ee97a64d42e3f071170c5962be"
 name = "checkout-deploy-2"
 handle = "checkout-deploy-2"
-application_url = "https://walk-memphis-kim-zu.trycloudflare.com"
+application_url = "https://conclusions-campaign-reliability-birds.trycloudflare.com"
 embedded = true
 
 [build]
@@ -15,13 +15,13 @@ api_version = "2025-04"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_delivery_customizations,write_discounts,write_payment_customizations,write_products"
+scopes = "write_delivery_customizations,write_discounts,write_payment_customizations,write_products,write_checkouts,read_checkout_branding_settings,write_checkout_branding_settings"
 
 [auth]
 redirect_urls = [
-  "https://walk-memphis-kim-zu.trycloudflare.com/auth/callback",
-  "https://walk-memphis-kim-zu.trycloudflare.com/auth/shopify/callback",
-  "https://walk-memphis-kim-zu.trycloudflare.com/api/auth/callback"
+  "https://conclusions-campaign-reliability-birds.trycloudflare.com/auth/callback",
+  "https://conclusions-campaign-reliability-birds.trycloudflare.com/auth/shopify/callback",
+  "https://conclusions-campaign-reliability-birds.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
