@@ -28,6 +28,7 @@ import {
   StoreIcon,
   ToggleOffIcon,
   AppsIcon,
+  LayoutBuyButtonHorizontalIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { json, useLoaderData } from "@remix-run/react";
@@ -75,20 +76,25 @@ export default function Index() {
             url: "/app/subscription-manage",
             variant: "primary",
           }}
-          tone="info"
+          tone="warning"
         >
+          <p>
+            With your current Free plan, you can still create and save
+            extensions. However, to make these extensions work on your checkout
+            page, you'll need to upgrade to Premium.
+          </p>
         </Banner>
         <br />
         <br />
 
         <>
           <Grid>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
+            <Grid.Cell gap="400" columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
               <PaymentAndShippingCustomizations />
+              <br />
+              <ExtensionsSection />
             </Grid.Cell>
             <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
-              {/* <br />
-              <br /> */}
               <MediaCard
                 portrait
                 title="Getting Started with Checkout Plus"
@@ -96,7 +102,7 @@ export default function Index() {
                   content: "Learn more",
                   onAction: () => {},
                 }}
-                description="Thank you for using Checkout Plus. Here is an in depth guide on how to get customize your checkout using Checkout Plus."
+                description="Thank you for using Checkout Plus. Here is an in depth guide.."
                 popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
               >
                 <VideoThumbnail
@@ -107,9 +113,9 @@ export default function Index() {
               </MediaCard>
             </Grid.Cell>
             {/* row 2 */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 312, lg: 12, xl: 12 }}>
+            {/* <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 12, lg: 8, xl: 8 }}>
               <ExtensionsSection />
-            </Grid.Cell>
+            </Grid.Cell> */}
           </Grid>
         </>
         <br />
@@ -121,63 +127,89 @@ export default function Index() {
 
 export function PaymentAndShippingCustomizations() {
   return (
-    // <Card>
-    <BlockStack gap="400">
-      <Text variant="headingLg" as="h2">
-        Payment & Shipping Customizations
-      </Text>
-      <BlockStack gap="300">
-        {/* Payment Customizations */}
-        <Card>
-          <InlineStack
-            align="space-between"
-            blockAlign="center"
-            justify="space-between"
-            wrap={false}
-          >
-            <InlineStack gap="400" blockAlign="center" wrap={false}>
-              <Icon source={CreditCardSecureIcon} />
-              <BlockStack gap="100">
-                <Text variant="bodyMd" as="p" fontWeight="semibold">
-                  Payment Customizations
-                </Text>
-                <Text variant="bodySm" as="p" tone="subdued">
-                  Hide, modify or reorder your payment options at checkout
-                </Text>
-              </BlockStack>
+    <Card>
+      <BlockStack gap="400">
+        <Text variant="headingLg" as="h2">
+          Payment & Shipping Customizations
+        </Text>
+        <BlockStack gap="300">
+          {/* Payment Customizations */}
+          <Card>
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              justify="space-between"
+              wrap={false}
+            >
+              <InlineStack gap="400" blockAlign="center" wrap={false}>
+                <Icon source={CreditCardSecureIcon} />
+                <BlockStack gap="100">
+                  <Text variant="bodyMd" as="p" fontWeight="semibold">
+                    Payment Customizations
+                  </Text>
+                  <Text variant="bodySm" as="p" tone="subdued">
+                    Hide, modify or reorder your payment options at checkout
+                  </Text>
+                </BlockStack>
+              </InlineStack>
+              <Button variant="primary" url="/app/payment-customization">
+                Manage
+              </Button>
             </InlineStack>
-            <Button variant="primary" url="/app/payment-customization">
-              Manage
-            </Button>
-          </InlineStack>
-        </Card>
+          </Card>
 
-        {/* Shipping Customizations */}
-        <Card>
-          <InlineStack
-            align="space-between"
-            blockAlign="center"
-            justify="space-between"
-            wrap={false}
-          >
-            <InlineStack gap="400" blockAlign="center" wrap={false}>
-              <Icon source={DeliveryFilledIcon} />
-              <BlockStack gap="100">
-                <Text variant="bodyMd" as="p" fontWeight="semibold">
-                  Shipping Customizations
-                </Text>
-                <Text variant="bodySm" as="p" tone="subdued">
-                  Add a message or hide your shipping methods
-                </Text>
-              </BlockStack>
+          {/* Shipping Customizations */}
+          <Card>
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              justify="space-between"
+              wrap={false}
+            >
+              <InlineStack gap="400" blockAlign="center" wrap={false}>
+                <Icon source={DeliveryFilledIcon} />
+                <BlockStack gap="100">
+                  <Text variant="bodyMd" as="p" fontWeight="semibold">
+                    Shipping Customizations
+                  </Text>
+                  <Text variant="bodySm" as="p" tone="subdued">
+                    Add a message or hide your shipping methods
+                  </Text>
+                </BlockStack>
+              </InlineStack>
+              <Button url="/app/shipping-customizations" variant="primary">
+                Manage
+              </Button>
             </InlineStack>
-            <Button url="/app/shipping-customizations" variant="primary">
-              Manage
-            </Button>
-          </InlineStack>
-        </Card>
+          </Card>
 
-        {/* Order Validations - Uncomment if needed later
+          {/* Checkout Branding Customizations & Styleing */}
+          <Card>
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              justify="space-between"
+              wrap={false}
+            >
+              <InlineStack gap="400" blockAlign="center" wrap={false}>
+                <Icon source={LayoutBuyButtonHorizontalIcon} />
+                <BlockStack gap="100">
+                  <Text variant="bodyMd" as="p" fontWeight="semibold">
+                    Customize Checkout Styles
+                  </Text>
+                  <Text variant="bodySm" as="p" tone="subdued">
+                    Change the color schemes, fonts, and more of your checkout
+                    page
+                  </Text>
+                </BlockStack>
+              </InlineStack>
+              <Button url="/app/customization" variant="primary">
+                Customize
+              </Button>
+            </InlineStack>
+          </Card>
+
+          {/* Order Validations - Uncomment if needed later
           <Card background="bg-surface-secondary">
             <InlineStack align="center" blockAlign="center" justify="space-between" wrap={false}>
               <InlineStack gap="400" blockAlign="center" wrap={false}>
@@ -195,9 +227,9 @@ export function PaymentAndShippingCustomizations() {
             </InlineStack>
           </Card>
           */}
+        </BlockStack>
       </BlockStack>
-    </BlockStack>
-    // </Card>
+    </Card>
   );
 }
 
@@ -252,80 +284,80 @@ function ExtensionsSection() {
   );
 
   return (
-    // <Card>
-    <BlockStack gap="400">
-      <Text variant="headingLg" as="h2">
-        Extensions
-      </Text>
-      <Grid>
-        {/* Checkout Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={CartIcon}
-            title="Checkout Extensions"
-            description="Custom messages, gift message, trust badges, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("checkout")}
-            buttonPlain // Use plain style for Get Started
-          />
-        </Grid.Cell>
+    <Card>
+      <BlockStack gap="400">
+        <Text variant="headingLg" as="h2">
+          Extensions
+        </Text>
+        <Grid>
+          {/* Checkout Extensions */}
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+            <ExtensionCard
+              icon={CartIcon}
+              title="Checkout Extensions"
+              description="Custom messages, gift message, trust badges, etc"
+              buttonLabel="Get Started"
+              onAction={() => openCheckoutEditor("checkout")}
+              buttonPlain // Use plain style for Get Started
+            />
+          </Grid.Cell>
 
-        {/* Thank You Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={StoreIcon}
-            title="Thank You Extensions"
-            description="Custom messages, share social media, contact info, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("thank-you")}
-            buttonPlain // Use plain style for Get Started
-          />
-        </Grid.Cell>
+          {/* Thank You Extensions */}
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+            <ExtensionCard
+              icon={StoreIcon}
+              title="Thank You Extensions"
+              description="Custom messages, share social media, contact info, etc"
+              buttonLabel="Get Started"
+              onAction={() => openCheckoutEditor("thank-you")}
+              buttonPlain // Use plain style for Get Started
+            />
+          </Grid.Cell>
 
-        {/* Order Status Extensions */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={OrderFulfilledIcon}
-            title="Order Status Extensions"
-            description="Custom messages, share social media, contact info, etc"
-            buttonLabel="Get Started"
-            onAction={() => openCheckoutEditor("order-status")}
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
+          {/* Order Status Extensions */}
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+            <ExtensionCard
+              icon={OrderFulfilledIcon}
+              title="Order Status Extensions"
+              description="Custom messages, share social media, contact info, etc"
+              buttonLabel="Get Started"
+              onAction={() => openCheckoutEditor("order-status")}
+              // No buttonPlain here, default primary style
+            />
+          </Grid.Cell>
 
-        {/* Upsells */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={CartUpIcon}
-            title="Upsells"
-            description="Offer advanced customizations like upsells"
-            buttonLabel="Manage"
-            buttonUrl="/app/manage-upsell"
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
+          {/* Upsells */}
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+            <ExtensionCard
+              icon={CartUpIcon}
+              title="Upsells"
+              description="Offer advanced customizations like upsells"
+              buttonLabel="Manage"
+              buttonUrl="/app/manage-upsell"
+              // No buttonPlain here, default primary style
+            />
+          </Grid.Cell>
 
-        {/* Explore more extension */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
-          <ExtensionCard
-            icon={AppsIcon}
-            title="Explore more extensions"
-            description="Browse more extensions for your store"
-            buttonLabel="See more options"
-            onAction={() => openCheckoutEditor("checkout")} // Link to checkout editor for exploring
-            // No buttonPlain here, default primary style
-          />
-        </Grid.Cell>
+          {/* Explore more extension */}
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+            <ExtensionCard
+              icon={AppsIcon}
+              title="Explore more extensions"
+              description="Browse more extensions for your store"
+              buttonLabel="See more options"
+              onAction={() => openCheckoutEditor("checkout")} // Link to checkout editor for exploring
+              // No buttonPlain here, default primary style
+            />
+          </Grid.Cell>
 
-        {/* Add placeholders for future extensions if needed */}
-        {/*
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
+          {/* Add placeholders for future extensions if needed */}
+          {/*
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
              <Card><BlockStack gap="300">...</BlockStack></Card>
           </Grid.Cell>
           */}
-      </Grid>
-    </BlockStack>
-    // </Card>
+        </Grid>
+      </BlockStack>
+    </Card>
   );
 }

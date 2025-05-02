@@ -1186,7 +1186,7 @@ function FormsDesign({ inputValue, handleInputChange }) {
               helpText="Small"
               suffix="px"
             />
-          </InlineGrid>  
+          </InlineGrid>
         </BlockStack>
       </BlockStack>
     </Card>
