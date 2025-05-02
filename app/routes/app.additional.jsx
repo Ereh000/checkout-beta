@@ -14,6 +14,11 @@ import {
   Popover,
   ColorPicker,
   Banner,
+  Layout, // Import Layout
+  Navigation,
+  Frame,
+  Scrollable,
+  OptionList, // Import Navigation
 } from "@shopify/polaris";
 import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
@@ -25,7 +30,7 @@ export async function loader({ request }) {
   const checkoutProfileId = await admin.graphql(`
     query {
         checkoutProfiles(first: 1, query: "is_published:true") {
-            nodes{
+            nodes{  
             id
             }
         }
@@ -86,10 +91,10 @@ export async function loader({ request }) {
   );
 
   const checkoutProfileStylingsData = await checkoutProfileStylings.json();
-  console.log(
-    "checkoutProfileStylingsData",
-    checkoutProfileStylingsData.data.checkoutBranding,
-  );
+  // console.log(
+  //   "checkoutProfileStylingsData",
+  //   checkoutProfileStylingsData.data.checkoutBranding,
+  // );
 
   const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
   if (!checkoutBranding || !checkoutBranding.designSystem) {
@@ -128,11 +133,14 @@ export default function CustomizationSettings() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // State for selected nav item - OptionList onChange provides an array
+
   // Form state to track all color values
   const [colorValues, setColorValues] = useState({
     scheme1Background: scheme1 ? scheme1.base.background : "#ffffff",
     scheme1Foreground: scheme1 ? scheme1.base.text : "#545454",
-    scheme1Accent: scheme1 && scheme1.base.accent ? scheme1.base.accent : "#1773b0",
+    scheme1Accent:
+      scheme1 && scheme1.base.accent ? scheme1.base.accent : "#1773b0",
     primaryButtonBackground: scheme1
       ? scheme1.primaryButton.background
       : "#1773b0",
@@ -214,217 +222,272 @@ export default function CustomizationSettings() {
     // Add other profiles here
   ];
 
+  const [selectedNavItem, setSelectedNavItem] = useState(["scheme1"]); // Initialize with array
+  console.log("selectedNavItem", selectedNavItem);
+
+  // custom handler and use setSelectedNavItem directly
+  const handleOptionListChange = useCallback((selected) => {
+    setSelectedNavItem(selected);
+  }, []);
+
+  // Define options for the OptionList
+  const sidebarOptions = [
+    {
+      title: "Design system",
+      options: [
+        { value: "scheme1", label: "Scheme 1" },
+        { value: "scheme2", label: "Scheme 2" },
+        { value: "scheme3", label: "Scheme 3" },
+        { value: "scheme4", label: "Scheme 4" },
+        { value: "text", label: "Text appearance" },
+        { value: "formsDesign", label: "Forms" },
+        { value: "typography", label: "Typography" },
+      ],
+    },
+  ];
+
   return (
     <Page>
-      <BlockStack gap="500">
-        {/* Success/Error Messages */}
-        {successMessage && (
-          <Banner
-            title={successMessage}
-            tone="success"
-            onDismiss={() => setSuccessMessage("")}
-          ></Banner>
-        )}
-        {errorMessage && (
-          <Banner tone="critical" onDismiss={() => setErrorMessage("")}>
-            {errorMessage}
-          </Banner>
-        )}
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <Banner
+          title={successMessage}
+          tone="success"
+          onDismiss={() => setSuccessMessage("")}
+        ></Banner>
+      )}
+      {errorMessage && (
+        <Banner tone="critical" onDismiss={() => setErrorMessage("")}>
+          {errorMessage}
+        </Banner>
+      )}
+      {/* Top Controls */}
+      <InlineStack align="end" gap="200">
+        <Select
+          label="Select profile"
+          labelInline
+          options={profileOptions}
+          onChange={handleSelectChange}
+          value={selectedProfile}
+        />
+        <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
+          Reset to default
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSaveColors}
+          loading={fetcher.state !== "idle"}
+        >
+          Save
+        </Button>
+      </InlineStack>
+      <br />
+      {/* Settings Layout */}
+      <Layout>
+        {/* Add Layout component */}
+        <Layout.Section variant="oneThird">
+          {/* Sidebar Section using OptionList */}
+          <Card padding="0">
+            <OptionList
+              title="Design system"
+              onChange={handleOptionListChange}
+              options={sidebarOptions[0].options}
+              selected={selectedNavItem}
+              allowMultiple={false}
+            />
+          </Card>
+        </Layout.Section>
+        <Layout.Section sectioned>
+          {/* Main Content Section */}
 
-        {/* Top Controls */}
-        <InlineStack align="end" gap="200">
-          <Select
-            label="Select profile"
-            labelInline
-            options={profileOptions}
-            onChange={handleSelectChange}
-            value={selectedProfile}
-          />
-          <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
-            Reset to default
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSaveColors}
-            loading={fetcher.state !== "idle"}
-          >
-            Save
-          </Button>
-        </InlineStack>
+          {selectedNavItem.includes("scheme1") && (
+            <Card>
+              <BlockStack gap="500">
+                {/* Scheme 1 Section */}
+                <BlockStack gap="300">
+                  <Text variant="headingMd" as="h2">
+                    Scheme 1 (Left side)
+                  </Text>
+                  <Text as="p" color="subdued">
+                    Use for the main content area on the left side
+                  </Text>
+                  <InlineGrid columns={3} gap="400">
+                    <ColorInput
+                      label="Background"
+                      value={colorValues.scheme1Background}
+                      onChange={(value) =>
+                        handleColorChange("scheme1Background", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Foreground (Text)"
+                      value={colorValues.scheme1Foreground}
+                      onChange={(value) =>
+                        handleColorChange("scheme1Foreground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Accent (Icons & indicators)"
+                      value={colorValues.scheme1Accent}
+                      onChange={(value) =>
+                        handleColorChange("scheme1Accent", value)
+                      }
+                    />
+                  </InlineGrid>
+                </BlockStack>
 
-        {/* Settings Card */}
-        <Card>
-          <BlockStack gap="500">
-            {/* Scheme 1 Section */}
-            <BlockStack gap="300">
-              <Text variant="headingMd" as="h2">
-                Scheme 1 (Left side)
-              </Text>
-              <Text as="p" color="subdued">
-                Use for the main content area on the left side
-              </Text>
-              <InlineGrid columns={3} gap="400">
-                <ColorInput
-                  label="Background"
-                  value={colorValues.scheme1Background}
-                  onChange={(value) =>
-                    handleColorChange("scheme1Background", value)
-                  }
-                />
-                <ColorInput
-                  label="Foreground (Text)"
-                  value={colorValues.scheme1Foreground}
-                  onChange={(value) =>
-                    handleColorChange("scheme1Foreground", value)
-                  }
-                />
-                <ColorInput
-                  label="Accent (Icons & indicators)"
-                  value={colorValues.scheme1Accent}
-                  onChange={(value) =>
-                    handleColorChange("scheme1Accent", value)
-                  }
-                />
-              </InlineGrid>
-            </BlockStack>
+                {/* Primary Button Section */}
+                <BlockStack gap="300">
+                  <InlineStack gap="100" blockAlign="center" wrap={false}>
+                    <Text variant="headingMd" as="h2">
+                      Primary button
+                    </Text>
+                    <Tooltip content="Use for primary action buttons">
+                      <Icon source={QuestionCircleIcon} color="base" />
+                    </Tooltip>
+                  </InlineStack>
+                  <Text as="p" color="subdued">
+                    Use for primary action buttons
+                  </Text>
+                  <InlineGrid columns={3} gap="400">
+                    <ColorInput
+                      label="Background"
+                      value={colorValues.primaryButtonBackground}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonBackground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Foreground (Text)"
+                      value={colorValues.primaryButtonForeground}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonForeground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Accent (Icons & indicators)"
+                      value={colorValues.primaryButtonAccent}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonAccent", value)
+                      }
+                    />
+                  </InlineGrid>
+                  <InlineGrid columns={3} gap="400">
+                    <ColorInput
+                      label="Background (Hover)"
+                      value={colorValues.primaryButtonBackgroundHover}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonBackgroundHover", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Foreground (Hover)"
+                      value={colorValues.primaryButtonForegroundHover}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonForegroundHover", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Accent (Hover)"
+                      value={colorValues.primaryButtonAccentHover}
+                      onChange={(value) =>
+                        handleColorChange("primaryButtonAccentHover", value)
+                      }
+                    />
+                  </InlineGrid>
+                </BlockStack>
 
-            {/* Primary Button Section */}
-            <BlockStack gap="300">
-              <InlineStack gap="100" blockAlign="center" wrap={false}>
+                {/* Secondary Button Section */}
+                <BlockStack gap="300">
+                  <Text variant="headingMd" as="h2">
+                    Secondary button
+                  </Text>
+                  <Text as="p" color="subdued">
+                    Use for secondary action buttons
+                  </Text>
+                  <InlineGrid columns={3} gap="400">
+                    <ColorInput
+                      label="Background"
+                      value={colorValues.secondaryButtonBackground}
+                      onChange={(value) =>
+                        handleColorChange("secondaryButtonBackground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Foreground (Text)"
+                      value={colorValues.secondaryButtonForeground}
+                      onChange={(value) =>
+                        handleColorChange("secondaryButtonForeground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Accent (Icons & indicators)"
+                      value={colorValues.secondaryButtonAccent}
+                      onChange={(value) =>
+                        handleColorChange("secondaryButtonAccent", value)
+                      }
+                    />
+                  </InlineGrid>
+                </BlockStack>
+
+                {/* Control Color Section */}
+                <BlockStack gap="300">
+                  <Text variant="headingMd" as="h2">
+                    Control color
+                  </Text>
+                  <Text as="p" color="subdued">
+                    Use for form controls (such as input fields, checkboxes, and
+                    dropdowns)
+                  </Text>
+                  <InlineGrid columns={2} gap="400">
+                    <ColorInput
+                      label="Background"
+                      value={colorValues.controlBackground}
+                      onChange={(value) =>
+                        handleColorChange("controlBackground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Foreground (Text)"
+                      value={colorValues.controlForeground}
+                      onChange={(value) =>
+                        handleColorChange("controlForeground", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Accent (Icons & indicators)"
+                      value={colorValues.controlAccent}
+                      onChange={(value) =>
+                        handleColorChange("controlAccent", value)
+                      }
+                    />
+                    <ColorInput
+                      label="Border"
+                      value={colorValues.controlBorder}
+                      onChange={(value) =>
+                        handleColorChange("controlBorder", value)
+                      }
+                    />
+                  </InlineGrid>
+                </BlockStack>
+              </BlockStack>
+            </Card>
+          )}
+
+          {/* Add other conditional sections here for other nav items */}
+          {selectedNavItem[0] && selectedNavItem[0] !== "scheme1" && (
+            <Card>
+              <BlockStack gap="300">
                 <Text variant="headingMd" as="h2">
-                  Primary button
+                  Content for {selectedNavItem[0]}
                 </Text>
-                <Tooltip content="Use for primary action buttons">
-                  <Icon source={QuestionCircleIcon} color="base" />
-                </Tooltip>
-              </InlineStack>
-              <Text as="p" color="subdued">
-                Use for primary action buttons
-              </Text>
-              <InlineGrid columns={3} gap="400">
-                <ColorInput
-                  label="Background"
-                  value={colorValues.primaryButtonBackground}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonBackground", value)
-                  }
-                />
-                <ColorInput
-                  label="Foreground (Text)"
-                  value={colorValues.primaryButtonForeground}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonForeground", value)
-                  }
-                />
-                <ColorInput
-                  label="Accent (Icons & indicators)"
-                  value={colorValues.primaryButtonAccent}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonAccent", value)
-                  }
-                />
-              </InlineGrid>
-              <InlineGrid columns={3} gap="400">
-                <ColorInput
-                  label="Background (Hover)"
-                  value={colorValues.primaryButtonBackgroundHover}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonBackgroundHover", value)
-                  }
-                />
-                <ColorInput
-                  label="Foreground (Hover)"
-                  value={colorValues.primaryButtonForegroundHover}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonForegroundHover", value)
-                  }
-                />
-                <ColorInput
-                  label="Accent (Hover)"
-                  value={colorValues.primaryButtonAccentHover}
-                  onChange={(value) =>
-                    handleColorChange("primaryButtonAccentHover", value)
-                  }
-                />
-              </InlineGrid>
-            </BlockStack>
-
-            {/* Secondary Button Section */}
-            <BlockStack gap="300">
-              <Text variant="headingMd" as="h2">
-                Secondary button
-              </Text>
-              <Text as="p" color="subdued">
-                Use for secondary action buttons
-              </Text>
-              <InlineGrid columns={3} gap="400">
-                <ColorInput
-                  label="Background"
-                  value={colorValues.secondaryButtonBackground}
-                  onChange={(value) =>
-                    handleColorChange("secondaryButtonBackground", value)
-                  }
-                />
-                <ColorInput
-                  label="Foreground (Text)"
-                  value={colorValues.secondaryButtonForeground}
-                  onChange={(value) =>
-                    handleColorChange("secondaryButtonForeground", value)
-                  }
-                />
-                <ColorInput
-                  label="Accent (Icons & indicators)"
-                  value={colorValues.secondaryButtonAccent}
-                  onChange={(value) =>
-                    handleColorChange("secondaryButtonAccent", value)
-                  }
-                />
-              </InlineGrid>
-            </BlockStack>
-
-            {/* Control Color Section */}
-            <BlockStack gap="300">
-              <Text variant="headingMd" as="h2">
-                Control color
-              </Text>
-              <Text as="p" color="subdued">
-                Use for form controls (such as input fields, checkboxes, and
-                dropdowns)
-              </Text>
-              <InlineGrid columns={2} gap="400">
-                <ColorInput
-                  label="Background"
-                  value={colorValues.controlBackground}
-                  onChange={(value) =>
-                    handleColorChange("controlBackground", value)
-                  }
-                />
-                <ColorInput
-                  label="Foreground (Text)"
-                  value={colorValues.controlForeground}
-                  onChange={(value) =>
-                    handleColorChange("controlForeground", value)
-                  }
-                />
-                <ColorInput
-                  label="Accent (Icons & indicators)"
-                  value={colorValues.controlAccent}
-                  onChange={(value) =>
-                    handleColorChange("controlAccent", value)
-                  }
-                />
-                <ColorInput
-                  label="Border"
-                  value={colorValues.controlBorder}
-                  onChange={(value) =>
-                    handleColorChange("controlBorder", value)
-                  }
-                />
-              </InlineGrid>
-            </BlockStack>
-          </BlockStack>
-        </Card>
-      </BlockStack>
+                <Text as="p">Implement content for this section.</Text>
+              </BlockStack>
+            </Card>
+          )}
+        </Layout.Section>
+      </Layout>{" "}
+      {/* Close Layout */}
       <br />
       <br />
     </Page>
@@ -609,3 +672,7 @@ function ColorInput({ label, value, helpText, onChange }) {
     </BlockStack>
   );
 }
+
+const Schema1 = () => {
+  return <div>Schema 1</div>;
+};
