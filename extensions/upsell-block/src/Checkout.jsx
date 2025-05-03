@@ -106,6 +106,7 @@ function Extension() {
             featuredImage {
               url
             }
+            handle
             priceRange {
               minVariantPrice {
                 amount
@@ -122,6 +123,8 @@ function Extension() {
         console.error("Invalid response format:", data);
         return { nodes: [] };
       }
+
+      // console.log("data.nodes:", data.nodes);
 
       return data;
     } catch (error) {
@@ -231,7 +234,8 @@ function Extension() {
         `query {    
           node(id: "${productId}") {
             ... on Product {
-              title
+              title 
+              handle
               variants(first: 1) {
                 edges {
                   node {
@@ -312,6 +316,8 @@ function Extension() {
 
   const layoutSelectted = "Default";
 
+  console.log("products & set:", products);
+
   // Render upsell products
   return (
     <BlockStack>
@@ -329,7 +335,7 @@ function Extension() {
                 borderRadius="base"
                 alignment="center"
                 direction="horizontal"
-              >  
+              >
                 <InlineLayout spacing="base" columns={["12%", "fill"]}>
                   <Image
                     source={product.image}

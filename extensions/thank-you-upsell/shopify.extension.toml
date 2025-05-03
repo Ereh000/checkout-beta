@@ -54,7 +54,52 @@ key = "settings"
 
 # [extensions.settings]
 # [[extensions.settings.fields]]
-# key = "banner_title"
+# key = "banner_title"  
 # type = "single_line_text_field"
 # name = "Banner title"
 # description = "Enter a title for the banner"
+
+
+ [extensions.settings]
+    [[extensions.settings.fields]]
+    key = "layout"
+    type = "single_line_text_field"  
+    name = "Layout"
+        [[extensions.settings.fields.validations]]  
+        name = "choices"
+        value = "[\"default\", \"column\"]"  
+
+    [[extensions.settings.fields]]
+    key = "heading"
+    type = "single_line_text_field"  
+    name = "Heading"
+    description = "Enter a heading for the upsell section"
+
+    [[extensions.settings.fields]]
+    key = "buttonText"
+    type = "single_line_text_field"
+    name = "Button Text"
+    description = "Text to display on the add button"
+
+    [[extensions.settings.fields]]
+    key = "buttonStyle"
+    type = "single_line_text_field"
+    name = "Button Style"
+    description = "Choose the button style"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"primary\", \"secondary\"]"
+
+    [[extensions.settings.fields]]
+    key = "imageSize"
+    type = "number_integer"
+    name = "Image Size"
+    description = "Size of product images in pixels (between 50-200)"
+    min = 50
+    max = 200
+
+    [[extensions.settings.fields]]
+    key = "showPrice"
+    type = "boolean"
+    name = "Show Price"
+    description = "Display product prices"
