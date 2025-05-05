@@ -3,7 +3,7 @@
 client_id = "afe2b2ee97a64d42e3f071170c5962be"
 name = "checkout-deploy-2"
 handle = "checkout-deploy-2"
-application_url = "https://by-stronger-mostly-roommate.trycloudflare.com"
+application_url = "https://prove-beautifully-andale-investor.trycloudflare.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "write_delivery_customizations,write_discounts,write_payment_customizat
 
 [auth]
 redirect_urls = [
-  "https://by-stronger-mostly-roommate.trycloudflare.com/auth/callback",
-  "https://by-stronger-mostly-roommate.trycloudflare.com/auth/shopify/callback",
-  "https://by-stronger-mostly-roommate.trycloudflare.com/api/auth/callback"
+  "https://prove-beautifully-andale-investor.trycloudflare.com/auth/callback",
+  "https://prove-beautifully-andale-investor.trycloudflare.com/auth/shopify/callback",
+  "https://prove-beautifully-andale-investor.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

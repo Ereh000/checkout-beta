@@ -70,8 +70,11 @@ export async function loader({ request }) {
 
   // Combine data and add a 'type' identifier
   const allCustomizations = [
-    ...hideCustomizations.map(item => ({ ...item, type: 'Hide Payment' })),
-    ...renameCustomizations.map(item => ({ ...item, type: 'Rename Payment' })),
+    ...hideCustomizations.map((item) => ({ ...item, type: "Hide Payment" })),
+    ...renameCustomizations.map((item) => ({
+      ...item,
+      type: "Rename Payment",
+    })),
     // Add other customization types here
   ];
 
@@ -81,7 +84,6 @@ export async function loader({ request }) {
   return json({ customizations: allCustomizations }); // Return combined data
 }
 // --- End Loader Function ---
-
 
 export default function PaymentCustomization() {
   // State to control modal visibility
@@ -95,10 +97,17 @@ export default function PaymentCustomization() {
   const rows = customizations.map((item) => [
     item.customizeName, // Customization Name
     item.type, // Type (e.g., "Hide Payment", "Rename Payment")
-    <Badge key={`${item.id}-status`} tone={item.status === 'active' ? 'success' : 'critical'}>
-      {item.status === 'active' ? 'Active' : 'Inactive'}
+    <Badge
+      key={`${item.id}-status`}
+      tone={item.status === "active" ? "success" : "critical"}
+    >
+      {item.status === "active" ? "Active" : "Inactive"}
     </Badge>,
-    <Button key={`${item.id}-edit`} url={`/app/hide-payment?id=${item.id}`} onClick={() => console.log(`Edit clicked for ${item.id}`)}>
+    <Button
+      key={`${item.id}-edit`}
+      url={`/app/hide-payment?id=${item.id}`}
+      onClick={() => console.log(`Edit clicked for ${item.id}`)}
+    >
       Edit
     </Button>, // Add Edit button logic later
   ]);
@@ -142,12 +151,7 @@ export default function PaymentCustomization() {
               "text", // Status (using Badge component)
               "text", // Edit Action
             ]}
-            headings={[
-              "Name",
-              "Type",
-              "Status",
-              "Edit",
-            ]}
+            headings={["Name", "Type", "Status", "Edit"]}
             rows={rows} // Use the prepared rows
           />
         </LegacyCard>
@@ -157,7 +161,9 @@ export default function PaymentCustomization() {
             heading="No payment customizations yet"
             image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
           >
-            <p>Create a new customization to modify payment options at checkout.</p>
+            <p>
+              Create a new customization to modify payment options at checkout.
+            </p>
           </EmptyState>
         </LegacyCard>
       )}
@@ -171,9 +177,9 @@ export default function PaymentCustomization() {
       >
         <Modal.Section>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-
             {/* Option 1: Hide Payment Method */}
-            <Link to={'/app/hide-payment'}
+            <Link
+              to={"/app/hide-payment"}
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -203,7 +209,8 @@ export default function PaymentCustomization() {
             </Link>
 
             {/* Option 2: Change Payment Method Name */}
-            <Link to={'/app/rename-payment'}
+            <Link
+              to={"/app/rename-payment"}
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -232,8 +239,8 @@ export default function PaymentCustomization() {
               </div>
             </Link>
 
-            {/* Option 3 */}
-            <Link
+            {/* These Features will be indule later */}
+            {/* <Link
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -261,8 +268,6 @@ export default function PaymentCustomization() {
                 <ArrowRightIcon />
               </div>
             </Link>
-
-            {/* Option 2 */}
             <Link
               style={{
                 textDecoration: "none",
@@ -290,9 +295,10 @@ export default function PaymentCustomization() {
               <div className="" style={{ width: "1.4rem", display: "flex" }}>
                 <ArrowRightIcon />
               </div>
-            </Link>
+            </Link> */}
+            {/*  */}
           </div>
-        </Modal.Section>
+        </Modal.Section> 
       </Modal>
     </Page>
   );

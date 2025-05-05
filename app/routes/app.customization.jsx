@@ -34,7 +34,7 @@ export async function loader({ request }) {
     query {
         checkoutProfiles(first: 1, query: "is_published:true") {
             nodes{  
-            id
+              id
             }
         }
     }

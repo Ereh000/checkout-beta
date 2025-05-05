@@ -1,678 +1,629 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Page,
+  Layout,
   Card,
+  Tabs,
+  Text,
   BlockStack,
   InlineStack,
-  InlineGrid,
-  TextField,
-  Text,
   Button,
-  Select,
-  Icon,
-  Tooltip,
-  Popover,
-  ColorPicker,
+  Badge,
+  Divider,
+  Box,
+  Link,
   Banner,
-  Layout, // Import Layout
-  Navigation,
-  Frame,
-  Scrollable,
-  OptionList, // Import Navigation
+  Modal,
+  DataTable,
+  Icon,
 } from "@shopify/polaris";
-import { QuestionCircleIcon } from "@shopify/polaris-icons";
-import { authenticate } from "../shopify.server";
-import { json, useFetcher, useLoaderData } from "@remix-run/react";
+
+import {
+  authenticate,
+  BASIC_PLAN,
+  PLUS_PLAN,
+  PLUS_ADVANCED,
+  BASIC_PLAN_YEARLY,
+  PLUS_PLAN_YEARLY,
+  PLUS_ADVANCED_YEARLY,
+} from "../shopify.server";
+
+import {
+  XIcon, CheckIcon
+} from '@shopify/polaris-icons';
+
+import { useFetcher, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request);
-  // fetch checkout profile id
-  const checkoutProfileId = await admin.graphql(`
-    query {
-        checkoutProfiles(first: 1, query: "is_published:true") {
-            nodes{  
-            id
-            }
-        }
-    }
-  `);
+  // Import the entire module first
+  // const shopify = await import("../server");
+  const { BillingInterval } = await import("@shopify/shopify-api");
+  // Then authenticate to get the billing object
+  const { billing } = await authenticate.admin(request);
 
-  const checkoutProfileIdData = await checkoutProfileId.json();
-  const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
-  console.log("checkoutId", checkoutId);
+  // Check which plans the user has
+  const subscriptions = await billing.check({
+    plans: [
+      BASIC_PLAN,
+      PLUS_PLAN,
+      PLUS_ADVANCED,
+      BASIC_PLAN_YEARLY,
+      PLUS_PLAN_YEARLY,
+      PLUS_ADVANCED_YEARLY,
+    ],
+    isTest: true,
+  });
 
-  // fetch checkout profile stylings -----
-  const checkoutProfileStylings = await admin.graphql(
-    `
-   query GetCheckoutBranding($checkoutProfileId: ID!) {
-      checkoutBranding(checkoutProfileId: $checkoutProfileId) {
-        designSystem {
-          colors{
-            schemes{
-              scheme1{
-                base{
-                  background
-                  text
-                  accent
-                }
-                control{
-                  background
-                  border
-                  accent
-                  text
-                }
-                primaryButton{
-                  background
-                  text
-                  accent
-                  hover{
-                    background
-                    text
-                    accent
-                  }
-                }
-                secondaryButton{
-                  background
-                  text
-                  accent
-                  hover{
-                    background
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }`,
-    {
-      variables: { checkoutProfileId: checkoutId },
+  console.log("Subscriptions:", subscriptions);
+
+  // Get billing configuration
+  const billingConfig = {
+    // Monthly plans
+    [BASIC_PLAN]: {
+      amount: 19.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Every30Days,
     },
-  );
-
-  const checkoutProfileStylingsData = await checkoutProfileStylings.json();
-  // console.log(
-  //   "checkoutProfileStylingsData",
-  //   checkoutProfileStylingsData.data.checkoutBranding,
-  // );
-
-  const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
-  if (!checkoutBranding || !checkoutBranding.designSystem) {
-    console.error("Checkout profile not found or missing design system");
-    return json({
-      success: false,
-      errors: ["Checkout profile not found or missing design system"],
-      checkoutProfileStylingsDataColors: null,
-    });
-  }
-
-  const checkoutProfileStylingsDataColors =
-    checkoutBranding.designSystem.colors;
-
-  return json({
-    success: true,
-    checkoutProfileStylingsDataColors,
-  });
-}
-
-// Main Customization Component
-export default function CustomizationSettings() {
-  const { checkoutProfileStylingsDataColors } = useLoaderData();
-  console.log(
-    "checkoutProfileStylingsDataColors",
-    checkoutProfileStylingsDataColors,
-  );
-
-  const scheme1 = checkoutProfileStylingsDataColors
-    ? checkoutProfileStylingsDataColors.schemes.scheme1
-    : null;
-  // console.log("scheme1", scheme1);
-
-  const [selectedProfile, setSelectedProfile] = useState("default");
-  const fetcher = useFetcher();
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-
-  // State for selected nav item - OptionList onChange provides an array
-
-  // Form state to track all color values
-  const [colorValues, setColorValues] = useState({
-    scheme1Background: scheme1 ? scheme1.base.background : "#ffffff",
-    scheme1Foreground: scheme1 ? scheme1.base.text : "#545454",
-    scheme1Accent:
-      scheme1 && scheme1.base.accent ? scheme1.base.accent : "#1773b0",
-    primaryButtonBackground: scheme1
-      ? scheme1.primaryButton.background
-      : "#1773b0",
-    primaryButtonForeground: scheme1 ? scheme1.primaryButton.text : "#ffffff",
-    primaryButtonAccent: scheme1 ? scheme1.primaryButton.accent : "#1773b0",
-    primaryButtonBackgroundHover: scheme1
-      ? scheme1.primaryButton.hover.background
-      : "#2092e0",
-    primaryButtonForegroundHover: scheme1
-      ? scheme1.primaryButton.hover.text
-      : "#ffffff",
-    primaryButtonAccentHover: scheme1
-      ? scheme1.primaryButton.hover.accent
-      : "#1773b0",
-    secondaryButtonBackground: scheme1
-      ? scheme1.secondaryButton.background
-      : "#ffffff",
-    secondaryButtonForeground: scheme1
-      ? scheme1.secondaryButton.text
-      : "#1773b0",
-    secondaryButtonAccent: scheme1 ? scheme1.secondaryButton.accent : "#1773b0",
-    controlBackground: scheme1 ? scheme1.control.background : "#ffffff",
-    controlForeground: scheme1 ? scheme1.control.text : "#545454",
-    controlAccent: scheme1 ? scheme1.control.accent : "#1773b0",
-    controlBorder: scheme1 ? scheme1.control.border : "#d9d9d9",
-  });
-
-  // Update color value handler
-  const handleColorChange = (field, value) => {
-    setColorValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    [PLUS_PLAN]: {
+      amount: 39.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Every30Days,
+    },
+    [PLUS_ADVANCED]: {
+      amount: 49.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Every30Days,
+    },
+    // Yearly plans
+    [BASIC_PLAN_YEARLY]: {
+      amount: 179.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Annual,
+    },
+    [PLUS_PLAN_YEARLY]: {
+      amount: 359.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Annual,
+    },
+    [PLUS_ADVANCED_YEARLY]: {
+      amount: 455.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Annual,
+    },
   };
 
-  const handleSelectChange = useCallback(
-    (value) => setSelectedProfile(value),
+  // Return plan constants to the client along with active plan and pricing
+  return {
+    activePlan:
+      subscriptions.appSubscriptions.length > 0
+        ? subscriptions.appSubscriptions[0].name
+        : null,
+    planConstants: {
+      BASIC_PLAN: BASIC_PLAN,
+      PLUS_PLAN: PLUS_PLAN,
+      PLUS_ADVANCED: PLUS_ADVANCED,
+      BASIC_PLAN_YEARLY: BASIC_PLAN_YEARLY,
+      PLUS_PLAN_YEARLY: PLUS_PLAN_YEARLY,
+      PLUS_ADVANCED_YEARLY: PLUS_ADVANCED_YEARLY,
+    },
+    billingConfig,
+  };
+}
+
+export default function MainSubscriptionManage() {
+  const { activePlan, planConstants, billingConfig } = useLoaderData();
+  const {
+    BASIC_PLAN,
+    PLUS_PLAN,
+    PLUS_ADVANCED,
+    BASIC_PLAN_YEARLY,
+    PLUS_PLAN_YEARLY,
+    PLUS_ADVANCED_YEARLY,
+  } = planConstants || {};
+
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [planToCancel, setPlanToCancel] = useState(null);
+  // Update the handleCancel function
+  const handleCancelClick = (plan) => {
+    setPlanToCancel(plan);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = () => {
+    cancelFetcher.submit(
+      {
+        plan: planToCancel,
+        billingType: selectedBilling,
+      },
+      { method: "post", action: "/api/cancel-subscription" },
+    );
+    setShowCancelModal(false);
+  };
+
+  console.log("Active Plan:", activePlan);
+  const activePlanMain = activePlan;
+
+  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  // const fetcher = useFetcher();
+  const upgradeFetcher = useFetcher(); // Rename existing fetcher for clarity
+  const cancelFetcher = useFetcher(); // Add a new fetcher for cancellation
+
+  // const isLoading = fetcher.state !== "idle";
+  const isLoading = upgradeFetcher.state !== "idle";
+  const isCancelling = cancelFetcher.state !== "idle";
+
+  const handleTabChange = useCallback(
+    (selectedTabIndex) => setSelectedTabIndex(selectedTabIndex),
     [],
   );
 
-  // Handle form submission
-  const handleSaveColors = () => {
-    const formData = new FormData();
+  const tabs = [
+    {
+      id: "monthly",
+      content: "Pay Monthly",
+      accessibilityLabel: "Pay Monthly",
+      panelID: "monthly-content",
+    },
+    {
+      id: "yearly",
+      content: (
+        <InlineStack gap="200" blockAlign="center">
+          Pay Yearly <Badge tone="success">Save 25%</Badge>
+        </InlineStack>
+      ),
+      panelID: "yearly-content",
+    },
+  ];
 
-    // Add all color values to form data
-    Object.entries(colorValues).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
-
-    fetcher.submit(formData, { method: "post", action: "/api/customization" });
+  // Use dynamic pricing from billing config
+  const prices = {
+    monthly: {
+      basic: billingConfig[BASIC_PLAN]
+        ? `$${billingConfig[BASIC_PLAN].amount}`
+        : "$19.99",
+      plus: billingConfig[PLUS_PLAN]
+        ? `$${billingConfig[PLUS_PLAN].amount}`
+        : "$39.99",
+      plusAdvanced: billingConfig[PLUS_ADVANCED]
+        ? `$${billingConfig[PLUS_ADVANCED].amount}`
+        : "$49.99",
+    },
+    yearly: {
+      basic: billingConfig[BASIC_PLAN_YEARLY]
+        ? `$${billingConfig[BASIC_PLAN_YEARLY].amount}`
+        : "$179.99",
+      plus: billingConfig[PLUS_PLAN_YEARLY]
+        ? `$${billingConfig[PLUS_PLAN_YEARLY].amount}`
+        : "$359.99",
+      plusAdvanced: billingConfig[PLUS_ADVANCED_YEARLY]
+        ? `$${billingConfig[PLUS_ADVANCED_YEARLY].amount}`
+        : "$455.99",
+    },
   };
 
-  // Add reset handler
-  const handleReset = () => {
-    fetcher.submit(
-      { action: "reset" },
-      { method: "post", action: "/api/customization" },
+  // Calculate monthly equivalent for yearly plans for display
+  const yearlyMonthlyEquivalent = {
+    basic: billingConfig[BASIC_PLAN_YEARLY]
+      ? `$${(billingConfig[BASIC_PLAN_YEARLY].amount / 12).toFixed(2)}`
+      : "$14.99",
+    plus: billingConfig[PLUS_PLAN_YEARLY]
+      ? `$${(billingConfig[PLUS_PLAN_YEARLY].amount / 12).toFixed(2)}`
+      : "$29.99",
+    plusAdvanced: billingConfig[PLUS_ADVANCED_YEARLY]
+      ? `$${(billingConfig[PLUS_ADVANCED_YEARLY].amount / 12).toFixed(2)}`
+      : "$37.99",
+  };
+
+  const selectedBilling = selectedTabIndex === 0 ? "monthly" : "yearly";
+  const priceSuffix = selectedTabIndex === 0 ? "/mo" : "/mo"; // Adjust suffix if needed
+
+  // For yearly billing, we'll show the monthly equivalent
+  const displayPrices =
+    selectedTabIndex === 0 ? prices.monthly : yearlyMonthlyEquivalent;
+
+  // For yearly billing, we'll show the total yearly price in a smaller text
+  const yearlyTotalPrices = prices.yearly;
+
+  const handleSubscribe = (plan) => {
+    upgradeFetcher.submit(
+      {
+        plan,
+        billingType: selectedBilling,
+      },
+      { method: "post", action: "/api/upgrade-subscription" },
     );
   };
 
-  // Handle response from action
-  useEffect(() => {
-    if (fetcher.data) {
-      if (fetcher.data.success) {
-        setSuccessMessage("Checkout colors updated successfully!");
-        setTimeout(() => setSuccessMessage(""), 3000);
-      } else {
-        setErrorMessage(
-          fetcher.data.error || "Failed to update checkout colors",
-        );
-        setTimeout(() => setErrorMessage(""), 5000);
-      }
-    }
-  }, [fetcher.data]);
+  const handleCancel = (plan) => {
+    cancelFetcher.submit(
+      {
+        plan,
+        billingType: selectedBilling,
+      },
+      { method: "post", action: "/api/cancel-subscription" },
+    );
+  };
 
-  const profileOptions = [
-    { label: "Default Profile", value: "default" },
-    { label: "Profile 1", value: "profile1" },
-    // Add other profiles here
-  ];
+  // Helper function to check if a plan is active
+  const isPlanActive = (planName) => {
+    if (!activePlan) return false;
 
-  const [selectedNavItem, setSelectedNavItem] = useState(["scheme1"]); // Initialize with array
-  console.log("selectedNavItem", selectedNavItem);
+    // Map the plan names to match the ones returned by the billing API
+    const planMapping = {
+      basic: BASIC_PLAN,
+      plus: PLUS_PLAN,
+      plusAdvanced: PLUS_ADVANCED,
+      basicYearly: BASIC_PLAN_YEARLY,
+      plusYearly: PLUS_PLAN_YEARLY,
+      plusAdvancedYearly: PLUS_ADVANCED_YEARLY,
+    };
 
-  // custom handler and use setSelectedNavItem directly
-  const handleOptionListChange = useCallback((selected) => {
-    setSelectedNavItem(selected);
-  }, []);
+    return activePlan === planMapping[planName];
+  };
 
-  // Define options for the OptionList
-  const sidebarOptions = [
-    {
-      title: "Design system",
-      options: [
-        { value: "scheme1", label: "Scheme 1" },
-        { value: "scheme2", label: "Scheme 2" },
-        { value: "scheme3", label: "Scheme 3" },
-        { value: "scheme4", label: "Scheme 4" },
-        { value: "text", label: "Text appearance" },
-        { value: "formsDesign", label: "Forms" },
-        { value: "typography", label: "Typography" },
+  // console.log("isPlanActive);
+
+  // Get human-readable plan name for the banner
+  const getReadablePlanName = () => {
+    if (!activePlan) return "";
+
+    if (activePlan === BASIC_PLAN) return "Basic Plan";
+    if (activePlan === PLUS_PLAN) return "Plus Plan";
+    if (activePlan === PLUS_ADVANCED) return "Plus Advanced Plan";
+
+    return activePlan; // Fallback to the raw plan name
+  };
+
+  const renderPlanFeatures = (plan) => {
+    const features = {
+      basic: [
+        {
+          title: "Social Media Icons",
+          description: "Thank You Page App Blocks",
+          included: true,
+        },
+        { title: "Order Status Page App Blocks", included: true },
+        { title: "Payment Customizations", included: true },
+        { title: "Shipping Customizations", included: true },
+        { title: "Order Validations", included: true },
+        { title: "Cart & Checkout Links", included: true },
+        { title: "Trial Period", description: "7-day", included: false }, // 'included' flag controls the "Included" text
       ],
-    },
+      plus: [
+        {
+          title: "Spotlight Feature",
+          description: "Checkout App Blocks",
+          included: true,
+        },
+        { title: "Thank You Page App Blocks", included: true },
+        { title: "Order Status Page App Blocks", included: true },
+        { title: "Payment Customizations", included: true },
+        { title: "Shipping Customizations", included: true },
+        { title: "Cart & Checkout Links", included: true },
+        { title: "Trial Period", description: "7-day", included: false },
+      ],
+      plusAdvanced: [
+        {
+          title: "Spotlight Feature",
+          description: "Upsell App Blocks",
+          included: true,
+        },
+        { title: "Auto Offer Product or Gift At Checkout", included: true },
+        { title: "Surveys & Forms", included: true },
+        { title: "Checkout App Blocks", included: true },
+        { title: "Thank You Page App Blocks", included: true },
+        { title: "Order Status Page App Blocks", included: true },
+        { title: "Payment Customizations", included: true },
+        { title: "Shipping Customizations", included: true },
+        { title: "Cart & Checkout Links", included: true },
+        { title: "Trial Period", description: "7-day", included: false },
+      ],
+    };
+
+    return (
+      <BlockStack gap="300">
+        {features[plan].map((feature, index) => (
+          <React.Fragment key={index}>
+            <BlockStack gap="050">
+              <Text
+                as="h3"
+                variant={
+                  feature.title === "Spotlight Feature"
+                    ? "headingSm"
+                    : "headingSm"
+                }
+                fontWeight={
+                  feature.title === "Spotlight Feature" ? "bold" : "medium"
+                }
+              >
+                {feature.title}
+              </Text>
+              {feature.description && (
+                <Text
+                  as="p"
+                  variant="bodyMd"
+                  tone={
+                    feature.title === "Spotlight Feature"
+                      ? "success"
+                      : "subdued"
+                  }
+                >
+                  {feature.description}
+                </Text>
+              )}
+              {feature.included && (
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Included
+                </Text>
+              )}
+            </BlockStack>
+            {index < features[plan].length - 1 && <Divider />}
+          </React.Fragment>
+        ))}
+      </BlockStack>
+    );
+  };
+
+  // const RenderCancelBanner = () => {
+  //   setTimeout(() => {}, 5000);
+  // };
+
+  // Updated feature comparison data based on the image
+  const featureComparisonData = [
+    ["Social Media Icons", true, true],
+    ["Testimonials Block", true, true],
+    ["Free Shipping / Discount Bar", true, true],
+    ["Custom Banner (limited)", true, true],
+    ["Line Item Message", false, true],
+    ["Featured Products / Upsells", false, true],
+    ["Custom Input Fields", false, true],
+    ["Custom Buttons", false, true],
+    ["Reorder Shipping Methods", false, true],
+    ["Hide Shipping Method (rules)", false, true],
+    ["Message to Shipping Method", false, true],
+    ["Reorder Payment Methods", false, true],
+    ["Hide Payment Methods", false, true],
+    ["Rename Payment Method", false, true],
+    ["Priority Support", false, true],
   ];
+
+  // Format the data for the DataTable component
+  const formattedFeatureData = featureComparisonData.map(
+    ([feature, starter, pro]) => [
+      <Text variant="bodyMd">{feature}</Text>,
+      starter ? (
+        <Icon source={CheckIcon} color="success" />
+      ) : (
+        <Icon source={XIcon} color="critical" />
+      ),
+      pro ? (
+        <Icon source={CheckIcon} color="success" />
+      ) : (
+        <Icon source={XIcon} color="critical" />
+      ),
+    ],
+  );
 
   return (
-    <Page>
-      {/* Success/Error Messages */}
-      {successMessage && (
-        <Banner
-          title={successMessage}
-          tone="success"
-          onDismiss={() => setSuccessMessage("")}
-        ></Banner>
+    <Page title="Manage Subscription">
+      {activePlan && (
+        <>
+          <Banner
+            title={`You are currently subscribed to the ${getReadablePlanName()}`}
+            tone="success"
+          >
+            <p>
+              You can upgrade your plan at any time to access more features.
+            </p>
+            <div style={{ marginTop: "10px" }}>
+              <Button
+                onClick={() => handleCancelClick(activePlanMain)}
+                loading={isCancelling}
+                disabled={isCancelling}
+                variant="primary"
+              >
+                Cancel Subscription
+              </Button>
+            </div>
+          </Banner>
+
+          {cancelFetcher.data?.success === false && (
+            <Banner title="Cancellation Failed" tone="critical">
+              <p>{cancelFetcher.data.error || "An unknown error occurred."}</p>
+            </Banner>
+          )}
+          {cancelFetcher.data?.success === true && (
+            <Banner title="Subscription Cancelled" tone="success">
+              <p>Your subscription has been cancelled successfully.</p>
+            </Banner>
+          )}
+          <br />
+        </>
       )}
-      {errorMessage && (
-        <Banner tone="critical" onDismiss={() => setErrorMessage("")}>
-          {errorMessage}
-        </Banner>
-      )}
-      {/* Top Controls */}
-      <InlineStack align="end" gap="200">
-        <Select
-          label="Select profile"
-          labelInline
-          options={profileOptions}
-          onChange={handleSelectChange}
-          value={selectedProfile}
-        />
-        <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
-          Reset to default
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleSaveColors}
-          loading={fetcher.state !== "idle"}
-        >
-          Save
-        </Button>
-      </InlineStack>
-      <br />
-      {/* Settings Layout */}
-      <Layout>
-        {/* Add Layout component */}
-        <Layout.Section variant="oneThird">
-          {/* Sidebar Section using OptionList */}
-          <Card padding="0">
-            <OptionList
-              title="Design system"
-              onChange={handleOptionListChange}
-              options={sidebarOptions[0].options}
-              selected={selectedNavItem}
-              allowMultiple={false}
+
+      <Box paddingBlockEnd="400">
+        <Card padding="0">
+          <Tabs
+            tabs={tabs}
+            selected={selectedTabIndex}
+            onSelect={handleTabChange}
+            fitted
+          />
+        </Card>
+      </Box>
+
+      {/* Plan comparison section */}
+      <Card>
+        <BlockStack gap="600">
+          <InlineStack align="center" gap="200">
+            <Text variant="headingLg" as="h2">
+              Shopify Checkout App - Billing Plan & Feature Comparison
+            </Text>
+          </InlineStack>
+
+          {/* Plan pricing cards */}
+          <Layout>
+            <Layout.Section variant="oneHalf">
+              <Card>
+                <BlockStack gap="400" align="center">
+                  <Text variant="headingXl" as="h2" fontWeight="bold">
+                    Starter Plan (Free)
+                  </Text>
+                  <Text variant="headingLg" as="p" fontWeight="bold">
+                    $0
+                  </Text>
+                  <Button
+                    onClick={() =>
+                      handleSubscribe(
+                        selectedTabIndex === 0 ? "basic" : "basicYearly",
+                      )
+                    }
+                    variant="primary"
+                    size="large"
+                    loading={
+                      isLoading &&
+                      (upgradeFetcher.formData?.get("plan") === "basic" ||
+                        upgradeFetcher.formData?.get("plan") === "basicYearly")
+                    }
+                    disabled={isPlanActive("basic")}
+                  >
+                    {isPlanActive("basic")
+                      ? "Current Plan"
+                      : "Get Started Free"}
+                  </Button>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+
+            <Layout.Section variant="oneHalf">
+              <Card>
+                <BlockStack gap="400" align="center">
+                  <Text variant="headingXl" as="h2" fontWeight="bold">
+                    Pro Plan
+                  </Text>
+                  <InlineStack align="center" gap="050">
+                    <Text variant="headingLg" as="p" fontWeight="bold">
+                      {displayPrices.plus}
+                    </Text>
+                    <Text as="span" variant="bodyMd" tone="subdued">
+                      {priceSuffix}
+                    </Text>
+                    {selectedTabIndex === 1 && (
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        (or {yearlyTotalPrices.plus} billed annually)
+                      </Text>
+                    )}
+                  </InlineStack>
+                  <Button
+                    onClick={() =>
+                      handleSubscribe(
+                        selectedTabIndex === 0 ? "plus" : "plusYearly",
+                      )
+                    }
+                    variant="primary"
+                    size="large"
+                    loading={
+                      isLoading &&
+                      (upgradeFetcher.formData?.get("plan") === "plus" ||
+                        upgradeFetcher.formData?.get("plan") === "plusYearly")
+                    }
+                    disabled={
+                      isPlanActive("plus") || isPlanActive("plusYearly")
+                    }
+                  >
+                    {isPlanActive("plus") || isPlanActive("plusYearly")
+                      ? "Current Plan"
+                      : "Upgrade to Pro"}
+                  </Button>
+                  {isPlanActive("plus") || isPlanActive("plusYearly") ? (
+                    <Text as="p" variant="bodySm" tone="success">
+                      Your active subscription
+                    </Text>
+                  ) : (
+                    <Text
+                      alignment="center"
+                      as="p"
+                      variant="bodySm"
+                      tone="subdued"
+                    >
+                      If you are on the Shopify Plus Trial Please Contact Us To
+                      Upgrade
+                    </Text>
+                  )}
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          </Layout>
+
+          {/* Feature comparison table */}
+          <Card>
+            <DataTable
+              columnContentTypes={["text", "text", "text"]}
+              headings={[
+                <Text variant="headingMd">Feature</Text>,
+                <Text variant="headingMd">Starter Plan (Free)</Text>,
+                <Text variant="headingMd">
+                  Pro Plan ({displayPrices.plus}
+                  {priceSuffix})
+                </Text>,
+              ]}
+              rows={formattedFeatureData}
+              increasedTableDensity
             />
           </Card>
-        </Layout.Section>
-        <Layout.Section sectioned>
-          {/* Main Content Section */}
 
-          {selectedNavItem.includes("scheme1") && (
-            <Card>
-              <BlockStack gap="500">
-                {/* Scheme 1 Section */}
-                <BlockStack gap="300">
-                  <Text variant="headingMd" as="h2">
-                    Scheme 1 (Left side)
-                  </Text>
-                  <Text as="p" color="subdued">
-                    Use for the main content area on the left side
-                  </Text>
-                  <InlineGrid columns={3} gap="400">
-                    <ColorInput
-                      label="Background"
-                      value={colorValues.scheme1Background}
-                      onChange={(value) =>
-                        handleColorChange("scheme1Background", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Foreground (Text)"
-                      value={colorValues.scheme1Foreground}
-                      onChange={(value) =>
-                        handleColorChange("scheme1Foreground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Accent (Icons & indicators)"
-                      value={colorValues.scheme1Accent}
-                      onChange={(value) =>
-                        handleColorChange("scheme1Accent", value)
-                      }
-                    />
-                  </InlineGrid>
-                </BlockStack>
+          <Box paddingBlockStart="400" paddingBlockEnd="400">
+            <InlineStack align="center">
+              <Text as="p" variant="bodyMd">
+                Have a question or feature request for Checkout Plus?{" "}
+                <Link url="#">Contact Us</Link>
+              </Text>
+            </InlineStack>
+          </Box>
+        </BlockStack>
+      </Card>
 
-                {/* Primary Button Section */}
-                <BlockStack gap="300">
-                  <InlineStack gap="100" blockAlign="center" wrap={false}>
-                    <Text variant="headingMd" as="h2">
-                      Primary button
-                    </Text>
-                    <Tooltip content="Use for primary action buttons">
-                      <Icon source={QuestionCircleIcon} color="base" />
-                    </Tooltip>
-                  </InlineStack>
-                  <Text as="p" color="subdued">
-                    Use for primary action buttons
-                  </Text>
-                  <InlineGrid columns={3} gap="400">
-                    <ColorInput
-                      label="Background"
-                      value={colorValues.primaryButtonBackground}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonBackground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Foreground (Text)"
-                      value={colorValues.primaryButtonForeground}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonForeground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Accent (Icons & indicators)"
-                      value={colorValues.primaryButtonAccent}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonAccent", value)
-                      }
-                    />
-                  </InlineGrid>
-                  <InlineGrid columns={3} gap="400">
-                    <ColorInput
-                      label="Background (Hover)"
-                      value={colorValues.primaryButtonBackgroundHover}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonBackgroundHover", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Foreground (Hover)"
-                      value={colorValues.primaryButtonForegroundHover}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonForegroundHover", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Accent (Hover)"
-                      value={colorValues.primaryButtonAccentHover}
-                      onChange={(value) =>
-                        handleColorChange("primaryButtonAccentHover", value)
-                      }
-                    />
-                  </InlineGrid>
-                </BlockStack>
-
-                {/* Secondary Button Section */}
-                <BlockStack gap="300">
-                  <Text variant="headingMd" as="h2">
-                    Secondary button
-                  </Text>
-                  <Text as="p" color="subdued">
-                    Use for secondary action buttons
-                  </Text>
-                  <InlineGrid columns={3} gap="400">
-                    <ColorInput
-                      label="Background"
-                      value={colorValues.secondaryButtonBackground}
-                      onChange={(value) =>
-                        handleColorChange("secondaryButtonBackground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Foreground (Text)"
-                      value={colorValues.secondaryButtonForeground}
-                      onChange={(value) =>
-                        handleColorChange("secondaryButtonForeground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Accent (Icons & indicators)"
-                      value={colorValues.secondaryButtonAccent}
-                      onChange={(value) =>
-                        handleColorChange("secondaryButtonAccent", value)
-                      }
-                    />
-                  </InlineGrid>
-                </BlockStack>
-
-                {/* Control Color Section */}
-                <BlockStack gap="300">
-                  <Text variant="headingMd" as="h2">
-                    Control color
-                  </Text>
-                  <Text as="p" color="subdued">
-                    Use for form controls (such as input fields, checkboxes, and
-                    dropdowns)
-                  </Text>
-                  <InlineGrid columns={2} gap="400">
-                    <ColorInput
-                      label="Background"
-                      value={colorValues.controlBackground}
-                      onChange={(value) =>
-                        handleColorChange("controlBackground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Foreground (Text)"
-                      value={colorValues.controlForeground}
-                      onChange={(value) =>
-                        handleColorChange("controlForeground", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Accent (Icons & indicators)"
-                      value={colorValues.controlAccent}
-                      onChange={(value) =>
-                        handleColorChange("controlAccent", value)
-                      }
-                    />
-                    <ColorInput
-                      label="Border"
-                      value={colorValues.controlBorder}
-                      onChange={(value) =>
-                        handleColorChange("controlBorder", value)
-                      }
-                    />
-                  </InlineGrid>
-                </BlockStack>
-              </BlockStack>
-            </Card>
-          )}
-
-          {/* Add other conditional sections here for other nav items */}
-          {selectedNavItem[0] && selectedNavItem[0] !== "scheme1" && (
-            <Card>
-              <BlockStack gap="300">
-                <Text variant="headingMd" as="h2">
-                  Content for {selectedNavItem[0]}
-                </Text>
-                <Text as="p">Implement content for this section.</Text>
-              </BlockStack>
-            </Card>
-          )}
-        </Layout.Section>
-      </Layout>{" "}
-      {/* Close Layout */}
-      <br />
-      <br />
+      {/* Cancel Confirmation Modal */}
+      <Modal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Cancel Subscription"
+        primaryAction={{
+          content: "Yes, Cancel Subscription",
+          destructive: true,
+          onAction: handleCancelConfirm,
+          loading: isCancelling,
+        }}
+        secondaryActions={[
+          {
+            content: "No, Keep Subscription",
+            onAction: () => setShowCancelModal(false),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Text as="p">
+              Are you sure you want to cancel your subscription? This action
+              cannot be undone.
+            </Text>
+            <Text as="p" tone="warning">
+              After cancellation:
+            </Text>
+            <ul style={{ paddingLeft: "20px" }}>
+              <li>
+                Your access will continue until the end of your current billing
+                period
+              </li>
+              <li>You will lose access to premium features</li>
+              <li>
+                Your settings and configurations will be preserved if you
+                resubscribe later
+              </li>
+            </ul>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
-
-// Helper component for Color Input Field
-function ColorInput({ label, value, helpText, onChange }) {
-  const [fieldValue, setFieldValue] = useState(value);
-  const [popoverActive, setPopoverActive] = useState(false);
-  const [color, setColor] = useState({
-    hue: 0,
-    brightness: 1,
-    saturation: 1,
-  });
-
-  // Basic validation for hex color
-  const isValidHex = /^$|^#([0-9A-Fa-f]{3}){1,2}$/.test(fieldValue);
-
-  const togglePopoverActive = useCallback(
-    () => setPopoverActive((active) => !active),
-    [],
-  );
-
-  const handleValueChange = useCallback(
-    (newValue) => {
-      setFieldValue(newValue);
-      if (onChange) onChange(newValue);
-    },
-    [onChange],
-  );
-
-  const handleColorChange = useCallback(
-    (color) => {
-      setColor(color);
-
-      // Convert HSB to hex
-      const { hue, brightness, saturation } = color;
-
-      let r, g, b;
-
-      const h = hue / 360;
-      const s = saturation;
-      const v = brightness;
-
-      const i = Math.floor(h * 6);
-      const f = h * 6 - i;
-      const p = v * (1 - s);
-      const q = v * (1 - f * s);
-      const t = v * (1 - (1 - f) * s);
-
-      switch (i % 6) {
-        case 0:
-          r = v;
-          g = t;
-          b = p;
-          break;
-        case 1:
-          r = q;
-          g = v;
-          b = p;
-          break;
-        case 2:
-          r = p;
-          g = v;
-          b = t;
-          break;
-        case 3:
-          r = p;
-          g = q;
-          b = v;
-          break;
-        case 4:
-          r = t;
-          g = p;
-          b = v;
-          break;
-        case 5:
-          r = v;
-          g = p;
-          b = q;
-          break;
-      }
-
-      const toHex = (x) => {
-        const hex = Math.round(x * 255).toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
-      };
-
-      const hexColor = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      setFieldValue(hexColor);
-      if (onChange) onChange(hexColor);
-    },
-    [onChange],
-  );
-
-  const activator = (
-    <div
-      onClick={togglePopoverActive}
-      style={{
-        cursor: "pointer",
-        width: "24px",
-        height: "24px",
-        borderRadius: "50%",
-        border: "1px solid var(--p-border-subdued)",
-        backgroundColor:
-          isValidHex && fieldValue ? fieldValue : "var(--p-surface-disabled)",
-        transition: "border-color 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--p-border-hovered)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--p-border-subdued)";
-      }}
-    />
-  );
-
-  return (
-    <BlockStack gap="100">
-      <InlineStack gap="100" blockAlign="center" wrap={false}>
-        <Text as="p" variant="bodyMd">
-          {label}
-        </Text>
-        {helpText && (
-          <Tooltip content={helpText}>
-            <Icon source={QuestionCircleIcon} color="base" />
-          </Tooltip>
-        )}
-      </InlineStack>
-      <InlineStack gap="200" wrap={false} blockAlign="center">
-        <div style={{ flexGrow: 1 }}>
-          <TextField
-            label={label}
-            labelHidden
-            value={fieldValue}
-            onChange={handleValueChange}
-            autoComplete="off"
-            error={
-              !isValidHex && fieldValue !== "" ? "Invalid hex color" : undefined
-            }
-          />
-        </div>
-        <div
-          className="pop_box"
-          style={{ border: "1px solid #ccc", borderRadius: "50%" }}
-        >
-          <Popover
-            active={popoverActive}
-            activator={
-              <div
-                onClick={togglePopoverActive}
-                style={{
-                  cursor: "pointer",
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  border: "1px solid var(--p-border-subdued)",
-                  backgroundColor:
-                    isValidHex && fieldValue
-                      ? fieldValue
-                      : "var(--p-surface-disabled)",
-                  transition: "border-color 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--p-border-hovered)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--p-border-subdued)";
-                }}
-              />
-            }
-            onClose={togglePopoverActive}
-            preferredAlignment="right"
-          >
-            <div style={{ padding: "22px" }}>
-              <ColorPicker onChange={handleColorChange} color={color} />
-            </div>
-          </Popover>
-        </div>
-      </InlineStack>
-    </BlockStack>
-  );
-}
-
-const Schema1 = () => {
-  return <div>Schema 1</div>;
-};

@@ -210,8 +210,9 @@ export default function PaymentCustomization() {
               </TextContainer>
             </Link>
           </Modal.Section>
-          {/* Option 3 */}
-          <Modal.Section>
+
+          {/* These Features will be indule later */}
+          {/* <Modal.Section>
             <Link style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
                 <div
@@ -239,7 +240,6 @@ export default function PaymentCustomization() {
               </TextContainer>
             </Link>
           </Modal.Section>
-          {/* Option 4 */}
           <Modal.Section>
             <Link style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
@@ -266,7 +266,7 @@ export default function PaymentCustomization() {
                 </div>
               </TextContainer>
             </Link>
-          </Modal.Section>
+          </Modal.Section> */}
         </Modal>
       </div>
 
