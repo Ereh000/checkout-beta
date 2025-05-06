@@ -32,6 +32,13 @@ export async function loader({ request }) {
   // fetch checkout profile id
   const checkoutProfileId = await admin.graphql(`
     query {
+        shop {
+          plan {
+            displayName
+            partnerDevelopment
+            shopifyPlus
+          }
+        }
         checkoutProfiles(first: 1, query: "is_published:true") {
             nodes{  
               id
@@ -41,8 +48,10 @@ export async function loader({ request }) {
   `);
 
   const checkoutProfileIdData = await checkoutProfileId.json();
+  const shopPlan = checkoutProfileIdData.data?.shop?.plan;
   const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
   console.log("checkoutId", checkoutId);
+  // console.log("shopPlan", shopPlan);
 
   // fetch checkout profile stylings -----
   const checkoutProfileStylings = await admin.graphql(
@@ -152,6 +161,7 @@ export async function loader({ request }) {
       checkoutProfileStylingsDataColors: null,
       checkoutId,
       shop,
+      shopPlan,
     });
   }
 
@@ -171,6 +181,7 @@ export async function loader({ request }) {
     cornerRadius,
     checkoutId,
     shop,
+    shopPlan,
   });
 }
 
@@ -183,7 +194,10 @@ export default function CustomizationSettings() {
     cornerRadius,
     checkoutId,
     shop,
+    shopPlan,
   } = useLoaderData();
+
+  console.log("shopPlan", shopPlan);
 
   // console.log("shop", shop);
   console.log("checkoutId", checkoutId);
@@ -409,12 +423,27 @@ export default function CustomizationSettings() {
           variant="primary"
           onClick={handleSaveColors}
           loading={fetcher.state !== "idle"}
+          disabled={
+            shopPlan.displayName === "Developer Preview" ||
+            shopPlan.shopifyPlus === true
+              ? false
+              : true
+          }
         >
           Save
         </Button>
       }
       secondaryActions={
-        <Button onClick={handleReset} loading={fetcher.state !== "idle"}>
+        <Button
+          onClick={handleReset}
+          loading={fetcher.state !== "idle"}
+          disabled={
+            shopPlan.displayName === "Developer Preview" ||
+            shopPlan.shopifyPlus === true
+              ? false
+              : true
+          }
+        >
           Reset to default
         </Button>
       }
@@ -438,6 +467,20 @@ export default function CustomizationSettings() {
           <br />
         </>
       )}
+      {/* Checking shopify plus or dev. preview */}
+      {shopPlan.displayName === "Developer Preview" ||
+        (shopPlan.shopifyPlus === true && (
+          <>
+            <Banner title="Checkout can't be Customized" tone="warning">
+              <p>
+                You are not Shopify Plus Plan or Developer's Preview. You can't
+                customize checkout page.
+              </p>
+            </Banner>
+            <br />
+          </>
+        ))}
+
       {/* Settings Layout */}
       <Layout>
         {/* Sidebar Section using OptionList */}
@@ -517,7 +560,6 @@ export default function CustomizationSettings() {
 
         {/* Main Content Section */}
         <Layout.Section sectioned>
-
           {selectedNavItem.includes("scheme1") && (
             <Card>
               <BlockStack gap="500">
@@ -1186,7 +1228,7 @@ function FormsDesign({ inputValue, handleInputChange }) {
               helpText="Small"
               suffix="px"
             />
-          </InlineGrid>  
+          </InlineGrid>
         </BlockStack>
       </BlockStack>
     </Card>

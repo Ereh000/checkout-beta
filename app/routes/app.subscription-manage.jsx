@@ -32,7 +32,21 @@ import { useFetcher, useLoaderData } from "@remix-run/react";
 export async function loader({ request }) {
   // Import the entire module first
   const { BillingInterval } = await import("@shopify/shopify-api");
-  const { billing } = await authenticate.admin(request);
+  const { billing, admin } = await authenticate.admin(request);
+
+  // Get shop data to check if it's a development store
+  const shop = await admin.graphql(`
+      query {
+        shop {
+          plan {
+            partnerDevelopment
+          }
+        }
+      }
+    `);
+  const shopData = await shop.json();
+  const isDevelopmentStore = shopData.data?.shop?.plan?.partnerDevelopment;
+  // console.log("Shop Data:", shopData.data?.shop?.plan?.partnerDevelopment);
 
   // Check which plans the user has
   const subscriptions = await billing.check({
@@ -81,11 +95,13 @@ export async function loader({ request }) {
       PLUS_PLAN_YEARLY: PLUS_PLAN_YEARLY,
     },
     billingConfig,
+    isDevelopmentStore,
   };
 }
 
 export default function MainSubscriptionManage() {
-  const { activePlan, planConstants, billingConfig } = useLoaderData();
+  const { activePlan, planConstants, billingConfig, isDevelopmentStore } =
+    useLoaderData();
   const { BASIC_PLAN, PLUS_PLAN, BASIC_PLAN_YEARLY, PLUS_PLAN_YEARLY } =
     planConstants || {};
   console.log("Plan Constants:", planConstants);
@@ -295,6 +311,18 @@ export default function MainSubscriptionManage() {
           <br />
         </>
       )}
+      {/* Banner for development stores */}
+      {isDevelopmentStore && (
+        <>
+          <Banner title="Development Store" tone="info">
+            <p>
+              You are currently on a development store. All plans are free to use & testing for
+              development stores.
+            </p>
+          </Banner>
+          <br />
+        </>
+      )}
 
       <Box paddingBlockEnd="400">
         <Card padding="0">
@@ -310,10 +338,9 @@ export default function MainSubscriptionManage() {
       {/* Plan comparison section */}
       <Card>
         <BlockStack gap="600">
-          <InlineStack align="center" gap="200">
-          </InlineStack>
+          <InlineStack align="center" gap="200"></InlineStack>
 
-          {/* Plan pricing cards */}
+          {/* Starter cards */}
           <Layout>
             <Layout.Section variant="oneHalf">
               <Card>
@@ -403,7 +430,9 @@ export default function MainSubscriptionManage() {
                         upgradeFetcher.formData?.get("plan") === "plusYearly")
                     }
                     disabled={
-                      isPlanActive("plus") || isPlanActive("plusYearly")
+                      isPlanActive("plus") ||
+                      isPlanActive("plusYearly") ||
+                      isDevelopmentStore
                     }
                   >
                     {isPlanActive("plus") || isPlanActive("plusYearly")

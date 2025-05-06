@@ -5,7 +5,6 @@ import {
   Card,
   Button,
   Text,
-  TextContainer,
   Grid,
   Icon,
   MediaCard,
@@ -17,16 +16,12 @@ import {
 } from "@shopify/polaris";
 
 import {
-  AlertCircleIcon,
   CartUpIcon,
   CartIcon,
   CreditCardSecureIcon,
   DeliveryFilledIcon,
-  GiftCardIcon,
   OrderFulfilledIcon,
-  ShareIcon,
   StoreIcon,
-  ToggleOffIcon,
   AppsIcon,
   LayoutBuyButtonHorizontalIcon,
 } from "@shopify/polaris-icons";
