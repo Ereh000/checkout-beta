@@ -9,42 +9,34 @@ import {
   InlineStack,
   Button,
   Badge,
-  Divider,
   Box,
   Link,
   Banner,
   Modal,
+  DataTable,
+  Icon,
 } from "@shopify/polaris";
 
 import {
   authenticate,
   BASIC_PLAN,
   PLUS_PLAN,
-  PLUS_ADVANCED,
   BASIC_PLAN_YEARLY,
   PLUS_PLAN_YEARLY,
-  PLUS_ADVANCED_YEARLY,
 } from "../shopify.server";
+
+import { XIcon, CheckIcon } from "@shopify/polaris-icons";
 
 import { useFetcher, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }) {
   // Import the entire module first
-  // const shopify = await import("../server");
   const { BillingInterval } = await import("@shopify/shopify-api");
-  // Then authenticate to get the billing object
   const { billing } = await authenticate.admin(request);
 
   // Check which plans the user has
   const subscriptions = await billing.check({
-    plans: [
-      BASIC_PLAN,
-      PLUS_PLAN,
-      PLUS_ADVANCED,
-      BASIC_PLAN_YEARLY,
-      PLUS_PLAN_YEARLY,
-      PLUS_ADVANCED_YEARLY,
-    ],
+    plans: [BASIC_PLAN, PLUS_PLAN, BASIC_PLAN_YEARLY, PLUS_PLAN_YEARLY],
     isTest: true,
   });
 
@@ -54,33 +46,23 @@ export async function loader({ request }) {
   const billingConfig = {
     // Monthly plans
     [BASIC_PLAN]: {
-      amount: 19.99,
+      amount: 0.0,
       currencyCode: "USD",
       interval: BillingInterval.Every30Days,
     },
     [PLUS_PLAN]: {
-      amount: 39.99,
-      currencyCode: "USD",
-      interval: BillingInterval.Every30Days,
-    },
-    [PLUS_ADVANCED]: {
-      amount: 49.99,
+      amount: 19.99,
       currencyCode: "USD",
       interval: BillingInterval.Every30Days,
     },
     // Yearly plans
     [BASIC_PLAN_YEARLY]: {
-      amount: 179.99,
+      amount: 0.0,
       currencyCode: "USD",
       interval: BillingInterval.Annual,
     },
     [PLUS_PLAN_YEARLY]: {
-      amount: 359.99,
-      currencyCode: "USD",
-      interval: BillingInterval.Annual,
-    },
-    [PLUS_ADVANCED_YEARLY]: {
-      amount: 455.99,
+      amount: 108.99,
       currencyCode: "USD",
       interval: BillingInterval.Annual,
     },
@@ -95,10 +77,8 @@ export async function loader({ request }) {
     planConstants: {
       BASIC_PLAN: BASIC_PLAN,
       PLUS_PLAN: PLUS_PLAN,
-      PLUS_ADVANCED: PLUS_ADVANCED,
       BASIC_PLAN_YEARLY: BASIC_PLAN_YEARLY,
       PLUS_PLAN_YEARLY: PLUS_PLAN_YEARLY,
-      PLUS_ADVANCED_YEARLY: PLUS_ADVANCED_YEARLY,
     },
     billingConfig,
   };
@@ -106,14 +86,10 @@ export async function loader({ request }) {
 
 export default function MainSubscriptionManage() {
   const { activePlan, planConstants, billingConfig } = useLoaderData();
-  const {
-    BASIC_PLAN,
-    PLUS_PLAN,
-    PLUS_ADVANCED,
-    BASIC_PLAN_YEARLY,
-    PLUS_PLAN_YEARLY,
-    PLUS_ADVANCED_YEARLY,
-  } = planConstants || {};
+  const { BASIC_PLAN, PLUS_PLAN, BASIC_PLAN_YEARLY, PLUS_PLAN_YEARLY } =
+    planConstants || {};
+  console.log("Plan Constants:", planConstants);
+  console.log("Billing Config:", billingConfig);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [planToCancel, setPlanToCancel] = useState(null);
@@ -174,24 +150,18 @@ export default function MainSubscriptionManage() {
     monthly: {
       basic: billingConfig[BASIC_PLAN]
         ? `$${billingConfig[BASIC_PLAN].amount}`
-        : "$19.99",
+        : "$0.00",
       plus: billingConfig[PLUS_PLAN]
         ? `$${billingConfig[PLUS_PLAN].amount}`
-        : "$39.99",
-      plusAdvanced: billingConfig[PLUS_ADVANCED]
-        ? `$${billingConfig[PLUS_ADVANCED].amount}`
-        : "$49.99",
+        : "$19.99",
     },
     yearly: {
       basic: billingConfig[BASIC_PLAN_YEARLY]
         ? `$${billingConfig[BASIC_PLAN_YEARLY].amount}`
-        : "$179.99",
+        : "$0.00",
       plus: billingConfig[PLUS_PLAN_YEARLY]
         ? `$${billingConfig[PLUS_PLAN_YEARLY].amount}`
-        : "$359.99",
-      plusAdvanced: billingConfig[PLUS_ADVANCED_YEARLY]
-        ? `$${billingConfig[PLUS_ADVANCED_YEARLY].amount}`
-        : "$455.99",
+        : "$108.99",
     },
   };
 
@@ -199,13 +169,10 @@ export default function MainSubscriptionManage() {
   const yearlyMonthlyEquivalent = {
     basic: billingConfig[BASIC_PLAN_YEARLY]
       ? `$${(billingConfig[BASIC_PLAN_YEARLY].amount / 12).toFixed(2)}`
-      : "$14.99",
+      : "$0.00",
     plus: billingConfig[PLUS_PLAN_YEARLY]
       ? `$${(billingConfig[PLUS_PLAN_YEARLY].amount / 12).toFixed(2)}`
-      : "$29.99",
-    plusAdvanced: billingConfig[PLUS_ADVANCED_YEARLY]
-      ? `$${(billingConfig[PLUS_ADVANCED_YEARLY].amount / 12).toFixed(2)}`
-      : "$37.99",
+      : "$9.08",
   };
 
   const selectedBilling = selectedTabIndex === 0 ? "monthly" : "yearly";
@@ -228,16 +195,6 @@ export default function MainSubscriptionManage() {
     );
   };
 
-  const handleCancel = (plan) => {
-    cancelFetcher.submit(
-      {
-        plan,
-        billingType: selectedBilling,
-      },
-      { method: "post", action: "/api/cancel-subscription" },
-    );
-  };
-
   // Helper function to check if a plan is active
   const isPlanActive = (planName) => {
     if (!activePlan) return false;
@@ -246,10 +203,8 @@ export default function MainSubscriptionManage() {
     const planMapping = {
       basic: BASIC_PLAN,
       plus: PLUS_PLAN,
-      plusAdvanced: PLUS_ADVANCED,
       basicYearly: BASIC_PLAN_YEARLY,
       plusYearly: PLUS_PLAN_YEARLY,
-      plusAdvancedYearly: PLUS_ADVANCED_YEARLY,
     };
 
     return activePlan === planMapping[planName];
@@ -261,106 +216,48 @@ export default function MainSubscriptionManage() {
   const getReadablePlanName = () => {
     if (!activePlan) return "";
 
-    if (activePlan === BASIC_PLAN) return "Basic Plan";
-    if (activePlan === PLUS_PLAN) return "Plus Plan";
-    if (activePlan === PLUS_ADVANCED) return "Plus Advanced Plan";
+    if (activePlan === BASIC_PLAN) return "Starter Plan";
+    if (activePlan === PLUS_PLAN) return "Pro Plan";
+    if (activePlan === PLUS_PLAN_YEARLY) return "Pro Plan Yearly";
 
     return activePlan; // Fallback to the raw plan name
   };
 
-  const renderPlanFeatures = (plan) => {
-    const features = {
-      basic: [
-        {
-          title: "Spotlight Feature",
-          description: "Thank You Page App Blocks",
-          included: true,
-        },
-        { title: "Order Status Page App Blocks", included: true },
-        { title: "Payment Customizations", included: true },
-        { title: "Shipping Customizations", included: true },
-        { title: "Order Validations", included: true },
-        { title: "Cart & Checkout Links", included: true },
-        { title: "Trial Period", description: "7-day", included: false }, // 'included' flag controls the "Included" text
-      ],
-      plus: [
-        {
-          title: "Spotlight Feature",
-          description: "Checkout App Blocks",
-          included: true,
-        },
-        { title: "Thank You Page App Blocks", included: true },
-        { title: "Order Status Page App Blocks", included: true },
-        { title: "Payment Customizations", included: true },
-        { title: "Shipping Customizations", included: true },
-        { title: "Cart & Checkout Links", included: true },
-        { title: "Trial Period", description: "7-day", included: false },
-      ],
-      plusAdvanced: [
-        {
-          title: "Spotlight Feature",
-          description: "Upsell App Blocks",
-          included: true,
-        },
-        { title: "Auto Offer Product or Gift At Checkout", included: true },
-        { title: "Surveys & Forms", included: true },
-        { title: "Checkout App Blocks", included: true },
-        { title: "Thank You Page App Blocks", included: true },
-        { title: "Order Status Page App Blocks", included: true },
-        { title: "Payment Customizations", included: true },
-        { title: "Shipping Customizations", included: true },
-        { title: "Cart & Checkout Links", included: true },
-        { title: "Trial Period", description: "7-day", included: false },
-      ],
-    };
+  // Updated feature comparison data based on the image
+  const featureComparisonData = [
+    ["Social Media Icons", true, true],
+    ["Testimonials Block", true, true],
+    ["Free Shipping / Discount Bar", true, true],
+    ["Custom Banner (limited)", true, true],
+    ["Line Item Message", false, true],
+    ["Featured Products / Upsells", false, true],
+    ["Custom Input Fields", false, true],
+    ["Custom Buttons", false, true],
+    ["Reorder Shipping Methods", false, true],
+    ["Hide Shipping Method (rules)", false, true],
+    ["Message to Shipping Method", false, true],
+    ["Reorder Payment Methods", false, true],
+    ["Hide Payment Methods", false, true],
+    ["Rename Payment Method", false, true],
+    ["Priority Support", false, true],
+  ];
 
-    return (
-      <BlockStack gap="300">
-        {features[plan].map((feature, index) => (
-          <React.Fragment key={index}>
-            <BlockStack gap="050">
-              <Text
-                as="h3"
-                variant={
-                  feature.title === "Spotlight Feature"
-                    ? "headingSm"
-                    : "headingSm"
-                }
-                fontWeight={
-                  feature.title === "Spotlight Feature" ? "bold" : "medium"
-                }
-              >
-                {feature.title}
-              </Text>
-              {feature.description && (
-                <Text
-                  as="p"
-                  variant="bodyMd"
-                  tone={
-                    feature.title === "Spotlight Feature"
-                      ? "success"
-                      : "subdued"
-                  }
-                >
-                  {feature.description}
-                </Text>
-              )}
-              {feature.included && (
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Included
-                </Text>
-              )}
-            </BlockStack>
-            {index < features[plan].length - 1 && <Divider />}
-          </React.Fragment>
-        ))}
-      </BlockStack>
-    );
-  };
-
-  // const RenderCancelBanner = () => {
-  //   setTimeout(() => {}, 5000);
-  // };
+  // Format the data for the DataTable component
+  const formattedFeatureData = featureComparisonData.map(
+    ([feature, starter, pro]) => [
+      <Text variant="bodyMd">{feature}</Text>,
+      starter ? (
+        <Icon source={CheckIcon} tone="success" />
+      ) : (
+        <Icon source={XIcon} tone="critical" />
+      ),
+      pro ? (
+        <Icon source={CheckIcon} tone="success" />
+      ) : (
+        <Icon source={XIcon} tone="critical" />
+      ),
+    ],
+  );
 
   return (
     <Page title="Manage Subscription">
@@ -373,20 +270,17 @@ export default function MainSubscriptionManage() {
             <p>
               You can upgrade your plan at any time to access more features.
             </p>
-            {/* Add Cancel Button Here */}
             <div style={{ marginTop: "10px" }}>
               <Button
-                // onClick={() => handleCancel(activePlanMain)}
                 onClick={() => handleCancelClick(activePlanMain)}
                 loading={isCancelling}
-                disabled={isCancelling} // Disable if any action is in progress
+                disabled={isCancelling}
                 variant="primary"
               >
                 Cancel Subscription
               </Button>
             </div>
           </Banner>
-          {/* Display cancellation success/error message */}
 
           {cancelFetcher.data?.success === false && (
             <Banner title="Cancellation Failed" tone="critical">
@@ -413,229 +307,156 @@ export default function MainSubscriptionManage() {
         </Card>
       </Box>
 
-      {/* Content based on selected tab can be rendered here if needed */}
-      {/* For this example, the plans are always visible, only prices might change */}
+      {/* Plan comparison section */}
+      <Card>
+        <BlockStack gap="600">
+          <InlineStack align="center" gap="200">
+          </InlineStack>
 
-      <Layout>
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="400">
-              <div
-                className=""
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <Text variant="headingXl" as="h2" fontWeight="bold">
-                  Basic Plan
-                </Text>
-
-                <InlineStack align="start" gap="050">
-                  <Text as="p" variant="headingXl" fontWeight="bold">
-                    {displayPrices.basic}
+          {/* Plan pricing cards */}
+          <Layout>
+            <Layout.Section variant="oneHalf">
+              <Card>
+                <BlockStack gap="400" inlineAlign="center">
+                  <Text variant="headingXl" as="h2" fontWeight="bold">
+                    Starter Plan (Free)
                   </Text>
-                  <Box paddingBlockStart="100">
-                    <Text as="span" variant="bodyMd" tone="subdued">
-                      {priceSuffix}
-                    </Text>
-                  </Box>
-                </InlineStack>
-                {selectedTabIndex === 1 && (
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    {yearlyTotalPrices.basic} billed annually
-                  </Text>
-                )}
-                <Button
-                  onClick={() =>
-                    handleSubscribe(
-                      selectedTabIndex === 0 ? "basic" : "basicYearly",
-                    )
-                  }
-                  variant="primary"
-                  size="large"
-                  loading={
-                    isLoading &&
-                    (upgradeFetcher.formData?.get("plan") === "basic" ||
-                      upgradeFetcher.formData?.get("plan") === "basicYearly")
-                  }
-                  disabled={isPlanActive("basic")}
-                >
-                  {isPlanActive("basic") ? "Current Plan" : "Try For Free"}
-                </Button>
-              </div>
-              <Divider />
-              {renderPlanFeatures("basic")}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="400">
-              <div
-                className=""
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <Text variant="headingXl" as="h2" fontWeight="bold">
-                  Plus Plan
-                </Text>
-
-                <InlineStack align="start" gap="050">
-                  <Text as="p" variant="headingXl" fontWeight="bold">
-                    {displayPrices.plus}
-                  </Text>
-                  <Box paddingBlockStart="100">
-                    <Text as="span" variant="bodyMd" tone="subdued">
-                      {priceSuffix}
-                    </Text>
-                  </Box>
-                </InlineStack>
-                {selectedTabIndex === 1 && (
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    {yearlyTotalPrices.plus} billed annually
-                  </Text>
-                )}
-                <Button
-                  onClick={() =>
-                    handleSubscribe(
-                      selectedTabIndex === 0 ? "plus" : "plusYearly",
-                    )
-                  }
-                  variant="primary"
-                  size="large"
-                  loading={
-                    isLoading &&
-                    (upgradeFetcher.formData?.get("plan") === "plus" ||
-                      upgradeFetcher.formData?.get("plan") === "plusYearly")
-                  }
-                  disabled={isPlanActive("plus") || isPlanActive("plusYearly")}
-                >
-                  {/* Corrected: Check for 'plus' or 'plusYearly' */}
-                  {isPlanActive("plus") || isPlanActive("plusYearly")
-                    ? "Current Plan"
-                    : "Plus Plan"}
-                </Button>
-                {/* Corrected: Check for 'plus' or 'plusYearly' */}
-                {isPlanActive("plus") || isPlanActive("plusYearly") ? (
-                  <Text as="p" variant="bodySm" tone="success">
-                    Your active subscription
-                  </Text>
-                ) : (
-                  <Text
-                    alignment="center"
-                    as="p"
-                    variant="bodySm"
-                    tone="subdued"
+                  <div
+                    className=""
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "2px",
+                    }}
                   >
-                    If you are on the Shopify Plus Trial Please Contact Us To
-                    Upgrade
-                  </Text>
-                )}
-              </div>
-              <Divider />
-              {renderPlanFeatures("plus")}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+                    <Text variant="headingLg" as="p" fontWeight="bold">
+                      $0
+                    </Text>
+                    {/* <Text as="span" variant="bodyMd" tone="subdued">
+                      /mo
+                    </Text> */}
+                  </div>
+                  <Button
+                    onClick={() =>
+                      handleSubscribe(
+                        selectedTabIndex === 0 ? "basic" : "basicYearly",
+                      )
+                    }
+                    variant="primary"
+                    disabled
+                    size="large"
+                    fullWidth
+                    loading={
+                      isLoading &&
+                      (upgradeFetcher.formData?.get("plan") === "basic" ||
+                        upgradeFetcher.formData?.get("plan") === "basicYearly")
+                    }
+                    // disabled={isPlanActive("basic")}
+                  >
+                    {isPlanActive("basic")
+                      ? "Started Already"
+                      : "Started Already"}
+                  </Button>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
 
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="400">
-              <div
-                className=""
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <Text variant="headingXl" as="h2" fontWeight="bold">
-                  Plus Advanced
-                </Text>
-
-                <InlineStack align="start" gap="050">
-                  <Text as="p" variant="headingXl" fontWeight="bold">
-                    {displayPrices.plusAdvanced}
+            <Layout.Section variant="oneHalf">
+              <Card>
+                <BlockStack gap="400" inlineAlign="center">
+                  <Text variant="headingXl" as="h2" fontWeight="bold">
+                    Pro Plan
                   </Text>
-                  <Box paddingBlockStart="100">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "2px",
+                    }}
+                  >
+                    <Text variant="headingLg" as="p" fontWeight="bold">
+                      {displayPrices.plus}
+                    </Text>
                     <Text as="span" variant="bodyMd" tone="subdued">
                       {priceSuffix}
                     </Text>
-                  </Box>
-                </InlineStack>
-                {selectedTabIndex === 1 && (
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    {yearlyTotalPrices.plusAdvanced} billed annually
-                  </Text>
-                )}
-                <Button
-                  onClick={() =>
-                    handleSubscribe(
-                      selectedTabIndex === 0
-                        ? "plusAdvanced"
-                        : "plusAdvancedYearly",
-                    )
-                  }
-                  variant="primary"
-                  size="large"
-                  loading={
-                    isLoading &&
-                    (upgradeFetcher.formData?.get("plan") === "plusAdvanced" ||
-                      upgradeFetcher.formData?.get("plan") ===
-                        "plusAdvancedYearly")
-                  }
-                  /* Corrected: Check for 'plusAdvanced' or 'plusAdvancedYearly' */
-                  disabled={
-                    isPlanActive("plusAdvanced") ||
-                    isPlanActive("plusAdvancedYearly")
-                  }
-                >
-                  {isPlanActive("plusAdvanced") ||
-                  isPlanActive("plusAdvancedYearly")
-                    ? "Current Plan"
-                    : "Plus Advanced Plan"}
-                </Button>
-                {isPlanActive("plusAdvanced") ||
-                isPlanActive("plusAdvancedYearly") ? (
-                  <Text as="p" variant="bodySm" tone="success">
-                    Your active subscription
-                  </Text>
-                ) : (
-                  <Text
-                    as="p"
-                    alignment="center"
-                    variant="bodySm"
-                    tone="subdued"
+                    {selectedTabIndex === 1 && (
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        (or {yearlyTotalPrices.plus} billed annually)
+                      </Text>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() =>
+                      handleSubscribe(
+                        selectedTabIndex === 0 ? "plus" : "plusYearly",
+                      )
+                    }
+                    variant="primary"
+                    fullWidth
+                    size="large"
+                    loading={
+                      isLoading &&
+                      (upgradeFetcher.formData?.get("plan") === "plus" ||
+                        upgradeFetcher.formData?.get("plan") === "plusYearly")
+                    }
+                    disabled={
+                      isPlanActive("plus") || isPlanActive("plusYearly")
+                    }
                   >
-                    If you are on the Shopify Plus Trial Please Contact Us To
-                    Upgrade
-                  </Text>
-                )}
-              </div>
-              <Divider />
-              {renderPlanFeatures("plusAdvanced")}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
+                    {isPlanActive("plus") || isPlanActive("plusYearly")
+                      ? "Current Plan"
+                      : "Upgrade to Pro"}
+                  </Button>
+                  {/* {isPlanActive("plus") || isPlanActive("plusYearly") ? (
+                    <Text as="p" variant="bodySm" tone="success">
+                      Your active subscription
+                    </Text>
+                  ) : (
+                    <Text
+                      alignment="center"
+                      as="p"
+                      variant="bodySm"
+                      tone="subdued"
+                    >
+                      If you are on the Shopify Plus Trial Please Contact Us To
+                      Upgrade
+                    </Text>
+                  )} */}
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          </Layout>
 
-      <Box paddingBlockStart="800" paddingBlockEnd="400">
-        <InlineStack align="center">
-          <Text as="p" variant="bodyMd">
-            Have a question or feature request for Checkout Plus?{" "}
-            <Link url="#">Contact Us</Link>
-          </Text>
-        </InlineStack>
-      </Box>
+          {/* Feature comparison table */}
+          <Card>
+            <DataTable
+              columnContentTypes={["text", "text", "text"]}
+              headings={[
+                <Text variant="headingMd">Feature</Text>,
+                <Text variant="headingMd">Starter Plan (Free)</Text>,
+                <Text variant="headingMd">
+                  Pro Plan ({displayPrices.plus}
+                  {priceSuffix})
+                </Text>,
+              ]}
+              rows={formattedFeatureData}
+              increasedTableDensity
+            />
+          </Card>
+
+          <Box paddingBlockStart="400" paddingBlockEnd="400">
+            <InlineStack align="center">
+              <Text as="p" variant="bodyMd">
+                Have a question or feature request for Checkout Plus?{" "}
+                <Link url="#">Contact Us</Link>
+              </Text>
+            </InlineStack>
+          </Box>
+        </BlockStack>
+      </Card>
 
       {/* Cancel Confirmation Modal */}
       <Modal
@@ -678,6 +499,9 @@ export default function MainSubscriptionManage() {
           </BlockStack>
         </Modal.Section>
       </Modal>
+
+      <br />
+      <br />
     </Page>
   );
 }

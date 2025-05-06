@@ -24,12 +24,12 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   billing: {
     [BASIC_PLAN]: {
-      amount: 19.99,
+      amount: 0.00,
       currencyCode: 'USD',
       interval: BillingInterval.Every30Days,
     },
     [PLUS_PLAN]: {
-      amount: 39.99,
+      amount: 19.99,
       currencyCode: 'USD',
       interval: BillingInterval.Every30Days,
     },
@@ -39,12 +39,12 @@ const shopify = shopifyApp({
       interval: BillingInterval.Every30Days,
     },
     [BASIC_PLAN_YEARLY]: {
-      amount: 179.99,
+      amount: 0.00,
       currencyCode: 'USD',
       interval: BillingInterval.Annual,
     },
     [PLUS_PLAN_YEARLY]: {
-      amount: 359.99,
+      amount: 108.99,
       currencyCode: 'USD',
       interval: BillingInterval.Annual,
     },
