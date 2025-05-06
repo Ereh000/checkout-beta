@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Page,
   LegacyCard,
@@ -12,10 +12,9 @@ import {
   TextContainer,
   Badge,
   DataTable,
-  // Link,
 } from "@shopify/polaris";
 import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import prisma from "../db.server"; // Import Prisma client
 import { authenticate } from "../shopify.server"; // For authentication
 import { json } from "@remix-run/node"; // For loader function
@@ -58,22 +57,106 @@ export async function loader({ request }) {
 }
 // --- End Loader Function ---
 
+export const action = async ({ request }) => {
+  if (request.method === "DELETE") {
+    const formdata = await request.formData();
+    const id = formdata.get("id");
+
+    if (!id) {
+      return json({ error: "ID is required" }, { status: 400 });
+    }
+
+    try {
+      await prisma.shippingCustomization.delete({
+        where: { id: id },
+      });
+
+      return json({ success: true });
+    } catch (error) {
+      console.error("Error deleting customization:", error);
+      return json({ error: "Failed to delete customization" }, { status: 500 });
+    }
+  }
+};
+
 export default function PaymentCustomization() {
+  const fetcher = useFetcher();
   // --- Use loader data ---
   const { customizations } = useLoaderData();
   // State to control modal visibility
   const [isOpen, setIsOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  const handleDelete = async (item) => {
+    try {
+      const itemId = item.id;
+      fetcher.submit(itemId, {
+        method: "delete",
+        action: ".",
+      });
+      console.log("item deleted successfully");
+    } catch (error) {
+      console.error("Error deleting customization:", error);
+    }
+  };
+
+  React.useEffect(() => {
+    if (fetcher.data) {
+      if (fetcher.data.errors) {
+        console.log("Item deleted unsuccessfully");
+      } else if (fetcher.data.success) {
+        console.log("Item deleted Successfully");
+      }
+    }
+  });
+
+  // Format date function
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Sort customizations by date (most recent first)
+  const sortedCustomizations = [...customizations].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+  );
 
   // --- Prepare data for DataTable ---
-  const rows = customizations.map((item) => [
+  const rows = sortedCustomizations.map((item) => [
+    // console.log("item",item),
     item.name, // Customization Name
     item.type, // Type (e.g., "Hide Shipping", "Rename Shipping")
     <Badge key={`${item.id}-status`} tone="success">
       Active
     </Badge>,
-    <Button key={`${item.id}-edit`} onClick={() => console.log("Edit clicked")}>
-      Edit
-    </Button>,
+    formatDate(item.createdAt), // Add formatted date
+    <div style={{ display: "flex", gap: "0.5rem" }}>
+      <Button
+        key={`${item.id}-edit`}
+        url={
+          item.type === "Hide Shipping"
+            ? `/app/hide-shipping-method?id=${item.id}`
+            : `/app/shipping-add-message?id=${item.id}`
+        }
+      >
+        Edit
+      </Button>
+      <Button
+        variant="primary"
+        tone="critical"
+        onClick={() => {
+          setItemToDelete(item);
+          setShowDeleteModal(true);
+        }}
+      >
+        Delete
+      </Button>
+    </div>,
   ]);
   // --- End Prepare data for DataTable ---
 
@@ -112,21 +195,11 @@ export default function PaymentCustomization() {
             columnContentTypes={[
               "text", // Name
               "text", // Type
-              // "text", // Shipping Method
-              // "numeric", // Conditions count (using Badge component)
-              // "text", // Created Date
-              "text", // Status (using Badge component)
-              "edit",
+              "text", // Status
+              "text", // Date
+              "text", // Edit
             ]}
-            headings={[
-              "Name",
-              "Type",
-              // "Shipping Method",
-              // "Conditions",
-              // "Created",
-              "Status",
-              "Edit",
-            ]}
+            headings={["Name", "Type", "Status", "Created At", "Actions"]}
             rows={rows} // Use the prepared rows
           />
         </LegacyCard>
@@ -269,6 +342,36 @@ export default function PaymentCustomization() {
           </Modal.Section> */}
         </Modal>
       </div>
+
+      {/* Add Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Customization"
+      >
+        <Modal.Section>
+          <TextContainer>
+            <p>Are you sure you want to delete this customization?</p>
+            <p>This action cannot be undone.</p>
+          </TextContainer>
+        </Modal.Section>
+        <Modal.Section>
+          <div
+            style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}
+          >
+            <Button onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+            <Button
+              tone="critical"
+              onClick={() => {
+                handleDelete(itemToDelete);
+                setShowDeleteModal(false);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </Modal.Section>
+      </Modal>
 
       <br />
       <br />

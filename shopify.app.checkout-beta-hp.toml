@@ -3,7 +3,7 @@
 client_id = "afe2b2ee97a64d42e3f071170c5962be"
 name = "checkout-deploy-2"
 handle = "checkout-deploy-2"
-application_url = "https://collapse-island-mc-motors.trycloudflare.com"
+application_url = "https://yr-warriors-fastest-walked.trycloudflare.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "write_delivery_customizations,write_discounts,write_payment_customizat
 
 [auth]
 redirect_urls = [
-  "https://collapse-island-mc-motors.trycloudflare.com/auth/callback",
-  "https://collapse-island-mc-motors.trycloudflare.com/auth/shopify/callback",
-  "https://collapse-island-mc-motors.trycloudflare.com/api/auth/callback"
+  "https://yr-warriors-fastest-walked.trycloudflare.com/auth/callback",
+  "https://yr-warriors-fastest-walked.trycloudflare.com/auth/shopify/callback",
+  "https://yr-warriors-fastest-walked.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

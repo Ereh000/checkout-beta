@@ -29,6 +29,9 @@ import prisma from "../db.server"; // Assuming prisma client path
 // --- Loader Function ---
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  console.log("id", id);
 
   // Fetch Shop GraphQL ID in the loader
   const shopIdResponse = await admin.graphql(
@@ -56,8 +59,19 @@ export async function loader({ request }) {
     throw new Response("Could not retrieve shop identifier.", { status: 500 });
   }
 
+  // If ID is provided, fetch existing customization
+  let existingCustomization = null;
+  if (id) {
+    existingCustomization = await prisma.shippingMessage.findUnique({
+      where: { id: id },
+    });
+    if (!existingCustomization) {
+      throw new Response("Customization not found", { status: 404 });
+    }
+  }
+
   // Return the shopGid
-  return json({ shopGid });
+  return json({ shopGid, existingCustomization });
 }
 // --- End Loader Function ---
 
@@ -72,6 +86,8 @@ export async function action({ request }) {
   const conditionsString = formData.get("conditions");
   // Retrieve shopGid passed from the fetcher
   const shopGid = formData.get("shopGid");
+  const id = formData.get("id");
+
   let conditions = [];
 
   try {
@@ -174,6 +190,71 @@ export async function action({ request }) {
   }
 
   try {
+    // --- Id id there then Update existing customization ---
+    if (id) {
+      // Update existing customization
+      const updatedCustomization = await prisma.shippingMessage.update({
+        where: { id: id },
+        data: {
+          name: customizeName,
+          shippingMethodToHide: shippingMethod,
+          message: message,
+          conditions: conditions,
+        },
+      });
+
+      // Update Shopify metafield
+      const metaConfig = {
+        shop: shopGid,
+        type: "Rename Shipping Method",
+        customizeName: customizeName,
+        shippingMethodToHide: shippingMethod,
+        message: message,
+        conditions: conditions,
+      };
+
+      await admin.graphql(
+        `#graphql
+          mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              metafields {
+                key
+                namespace
+                value
+                createdAt
+                updatedAt
+              }
+              userErrors {
+                field
+                message
+                code
+              }
+            }
+          }`,
+        {
+          variables: {
+            metafields: [
+              {
+                key: "rename_shipping",
+                namespace: "method",
+                ownerId: shopGid,
+                type: "json",
+                value: JSON.stringify(metaConfig),
+              },
+            ],
+          },
+        },
+      );
+
+      console.log("Rename Shipping Method updated successfully.");
+      return json({
+        success: true,
+        message: "Customization updated successfully.",
+      });
+    }
+
+    // --- Else Create new customization ---
+
     // --- Check for existing customization with the same name ---
     const existingCustomization = await prisma.shippingMessage.findFirst({
       where: {
@@ -369,7 +450,10 @@ export async function action({ request }) {
     // --- End Save to Prisma ---
 
     console.log("Prisma saved success", prismaResponse);
-    console.log("Shopify meta saved success", data.data.metafieldsSet.metafields);
+    console.log(
+      "Shopify meta saved success",
+      data.data.metafieldsSet.metafields,
+    );
 
     // Return success JSON instead of redirecting for fetcher
     return json({ success: true, message: "Settings saved successfully." });
@@ -386,14 +470,19 @@ export async function action({ request }) {
 
 export default function MainHideShippingMethod() {
   // Get shopGid from loader data
-  const { shopGid } = useLoaderData();
+  const { shopGid, existingCustomization } = useLoaderData();
+  console.log("existingCustomization", existingCustomization);
   // Initialize fetcher
   const fetcher = useFetcher();
   // Use fetcher.state for loading status
   const isSubmitting = fetcher.state !== "idle";
-  const [customizeName, setCustomizeName] = useState("");
-  const [shippingMethod, setShippingMethod] = useState("");
-  const [message, setMessage] = useState("");
+  const [customizeName, setCustomizeName] = useState(
+    existingCustomization?.name || "",
+  );
+  const [shippingMethod, setShippingMethod] = useState(
+    existingCustomization?.shippingMethodToHide || "",
+  );
+  const [message, setMessage] = useState(existingCustomization?.message || "");
   const [conditions, setConditions] = useState([
     {
       type: "cart_total",
@@ -477,6 +566,8 @@ export default function MainHideShippingMethod() {
       conditions: JSON.stringify(conditions),
       // Add shopGid from loader data
       shopGid: shopGid,
+      // Add id if it exists from customization
+      ...(existingCustomization?.id && { id: existingCustomization.id }),
     };
 
     // Submit data using fetcher
@@ -489,6 +580,10 @@ export default function MainHideShippingMethod() {
 
   // --- Effect to display fetcher response ---
   React.useEffect(() => {
+    if (existingCustomization?.conditions) {
+      setConditions(existingCustomization?.conditions);
+    }
+
     if (fetcher.data) {
       if (fetcher.data.errors) {
         setAlertMessage({
@@ -502,12 +597,14 @@ export default function MainHideShippingMethod() {
           content: [fetcher.data.message || "Settings saved successfully"],
           tone: "success",
         });
-        // Optional: Reset form fields on success
-        setCustomizeName("");
-        setShippingMethod("");
-        setConditions([
-          { type: "cart_total", operator: "greater_than", value: "" },
-        ]);
+        if (!existingCustomization?.id) {
+          // Optional: Reset form fields on success
+          setCustomizeName("");
+          setShippingMethod("");
+          setConditions([
+            { type: "cart_total", operator: "greater_than", value: "" },
+          ]);
+        }
       }
     }
   }, [fetcher.data]);

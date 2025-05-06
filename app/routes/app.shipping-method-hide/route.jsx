@@ -17,8 +17,8 @@ import { SearchIcon, DeleteIcon, PlusIcon } from "@shopify/polaris-icons";
 //   import "./";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node"; // Import json and redirect
-import { authenticate } from "../shopify.server"; // Assuming authenticate utility
-import prisma from "../db.server"; // Assuming prisma client path
+import { authenticate } from "../../shopify.server"; // Assuming authenticate utility
+import prisma from "../../db.server"; // Assuming prisma client path
 
 // --- Loader Function ---
 export async function loader({ request }) {
@@ -169,7 +169,7 @@ export default function MainHideShippingMethod() {
     // Submit data using fetcher
     fetcher.submit(submitData, {
       method: "post",
-      action: "/api/hide-shipping-method",
+      action: "/api/hide-payment",
       // The action URL defaults to the current route, which is correct here
     });
   };
@@ -195,7 +195,7 @@ export default function MainHideShippingMethod() {
           content: [fetcher.data.message || "Settings saved successfully"],
           tone: "success",
         });
-        if (!customization?.id) {
+        if (customization?.id) {
           // Optional: Reset form fields on success
           setCustomizeName("");
           setShippingMethod("");
@@ -215,7 +215,7 @@ export default function MainHideShippingMethod() {
           title="Hide Shipping Method"
           backAction={{
             content: "Settings",
-            url: "/app/shipping-customizations",
+            action: "/api/hide-shipping-method",
           }}
           primaryAction={{
             content: "Save",
@@ -433,10 +433,10 @@ function ConditionBuilder({ conditions, setConditions, setAlertMessage }) {
                   label={index === 0 ? "Operator" : ""}
                   labelHidden={index !== 0}
                   options={[
-                    { label: "is small than", value: "less_than" },
+                    { label: "is smaller than", value: "greater_than" },
                     { label: "is greater than", value: "less_than" },
                   ]}
-                  value={condition.operator || "greater_than"}
+                  value={condition.operator}
                   onChange={(value) =>
                     handleConditionChange(index, "operator", value)
                   }
@@ -636,7 +636,7 @@ function RightSideView({ customizeName, shippingMethod, conditions }) {
   const getConditionText = (condition) => {
     switch (condition.type) {
       case "cart_total":
-        return `Cart Total ${condition.operator === "greater_than" ? "is greater than" : "is smaller than"} $${condition.value}`;
+        return `Cart Total ${condition.operator === "greater_than" ? "is smaller than" : "is greater than"} $${condition.value}`;
       case "customer_tag":
         return `Customer Tag ${condition.operator === "is" ? "is" : "is not"} ${condition.value}`;
       case "customer_type":
