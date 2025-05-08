@@ -23,15 +23,38 @@ import {
   useLoaderData,
 } from "@remix-run/react";
 import { json } from "@remix-run/node"; // Import json and redirect
-import { authenticate } from "../shopify.server"; // Assuming authenticate utility
+import { authenticate, PLUS_PLAN, PLUS_PLAN_YEARLY } from "../shopify.server"; // Assuming authenticate utility
 import prisma from "../db.server"; // Assuming prisma client path
 
 // --- Loader Function ---
 export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   console.log("id", id);
+
+  // Check if the shop is plus and has an active payment
+  const { hasActivePayment, appSubscriptions } = await billing.check({
+    plans: [PLUS_PLAN, PLUS_PLAN_YEARLY],
+    isTest: true,
+  });
+
+  const shopResponse = await admin.graphql(`
+      query {
+        shop {
+          id
+          plan {
+            displayName
+            partnerDevelopment
+            shopifyPlus
+          }
+        }
+      }
+    `);
+  const shopData = await shopResponse.json();
+  const shopPlan = shopData.data?.shop?.plan;
+  console.log("shop plan", shopPlan);
+  // Check if the shop is plus and has an active payment ends ---
 
   // Fetch Shop GraphQL ID in the loader
   const shopIdResponse = await admin.graphql(
@@ -71,7 +94,7 @@ export async function loader({ request }) {
   }
 
   // Return the shopGid
-  return json({ shopGid, existingCustomization });
+  return json({ shopGid, existingCustomization, shopPlan, hasActivePayment });
 }
 // --- End Loader Function ---
 
@@ -470,7 +493,8 @@ export async function action({ request }) {
 
 export default function MainHideShippingMethod() {
   // Get shopGid from loader data
-  const { shopGid, existingCustomization } = useLoaderData();
+  const { shopGid, existingCustomization, shopPlan, hasActivePayment } =
+    useLoaderData();
   console.log("existingCustomization", existingCustomization);
   // Initialize fetcher
   const fetcher = useFetcher();
@@ -623,9 +647,28 @@ export default function MainHideShippingMethod() {
             content: "Save",
             onAction: handleSaveWithFetcher,
             loading: isSubmitting, // Use fetcher state for loading
-            disabled: isSubmitting, // Use fetcher state for disabling
+            disabled: !hasActivePayment, // Use fetcher state for disabling
           }}
         >
+          {!hasActivePayment && (
+            <>
+              <Banner
+                title="Upgrade your plan"
+                tone="warning"
+                action={{
+                  content: "Upgrade",
+                  url: "/app/subscription-manage",
+                  variant: "primary",
+                }}
+              >
+                <p>
+                  Upgrade your plan to get access to all the features of this
+                  app.
+                </p>
+              </Banner>
+              <br />
+            </>
+          )}
           {alertMessage && (
             <div className="">
               <Banner
@@ -665,6 +708,8 @@ export default function MainHideShippingMethod() {
             </Grid.Cell>
           </Grid>
         </Page>
+        <br />
+        <br />
       </fetcher.Form>
     </>
   );

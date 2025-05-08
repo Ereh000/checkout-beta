@@ -88,18 +88,21 @@ key = "settings"
     description = "Choose the button style"
         [[extensions.settings.fields.validations]]
         name = "choices"
-        value = "[\"primary\", \"secondary\"]"
+        value = "[\"primary\", \"secondary\", \"plain\"]"
 
     [[extensions.settings.fields]]
-    key = "imageSize"
-    type = "number_integer"
-    name = "Image Size"
-    description = "Size of product images in pixels (between 50-200)"
-    min = 50
-    max = 200
-
+    key = "buttonAppearance"
+    type = "single_line_text_field"
+    name = "Button Appearance"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"base\",\"success\", \"warning\", \"critical\"]"
+ 
     [[extensions.settings.fields]]
-    key = "showPrice"
-    type = "boolean"
-    name = "Show Price"
-    description = "Display product prices"
+    key = "buttonPosition"
+    type = "single_line_text_field"
+    name = "Button Position"
+    description = "Choose the button position"
+        [[extensions.settings.fields.validations]]
+        name = "choices"
+        value = "[\"start\", \"center\", \"end\"]"

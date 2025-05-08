@@ -22,7 +22,14 @@ export default reactExtension("purchase.checkout.block.render", () => (
 ));
 
 function Extension() {
-  const { layout } = useSettings();
+  const {
+    layout,
+    heading,
+    buttonText,
+    buttonStyle,
+    buttonAppearance,
+    buttonPosition,
+  } = useSettings();
   // State management
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +226,7 @@ function Extension() {
     const data = await fetchProducts(validUpsellProductIds);
     if (data && data.nodes) {
       const formattedProducts = formatProductsData(data.nodes);
-      console.log("formattedProducts:", formattedProducts);
+      // console.log("formattedProducts:", formattedProducts);
       setProducts(formattedProducts);
     }
   };
@@ -276,8 +283,8 @@ function Extension() {
         const upsellSettings = parseMetafieldData(shopMetafield);
         const upsellProductSettings = parseMetafieldData(productMetafield);
 
-        console.log("upsellSettings:", upsellSettings);
-        console.log("upsellProductSettings:", upsellProductSettings);
+        // console.log("upsellSettings:", upsellSettings);
+        // console.log("upsellProductSettings:", upsellProductSettings);
 
         // Check if either metafield data source is available
         // if (upsellSettings) {
@@ -301,31 +308,38 @@ function Extension() {
   }, [query, shopMetafield, productMetafield, cartLines]);
 
   // Loading state
-  if (loading) {
-    return (
-      <BlockStack spacing="loose">
-        <Text>Loading products...</Text>
-      </BlockStack>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <BlockStack spacing="loose">
+  //       <Text>Loading products...</Text>
+  //     </BlockStack>
+  //   );
+  // }
 
   // Don't show anything if no upsells should be displayed
   if (!showUpsell || products.length === 0) {
     return null;
   }
 
-  const layoutSelectted = "Default";
+  // const layoutSelectted = "Default";
 
   console.log("products & set:", products);
 
   // Render upsell products
   return (
     <BlockStack>
-      <Text size="medium" level={2} emphasis="bold">
-        You may also like
+      <Text size="large" level={2} emphasis="bold">
+        {heading || "You may also like"}
       </Text>
       {layout === "column" ? (
-        <ColumnLayout handleAdd={handleAdd} products={products} />
+        <ColumnLayout
+          handleAdd={handleAdd}
+          products={products}
+          buttonAppearance={buttonAppearance}
+          buttonText={buttonText}
+          buttonStyle={buttonStyle}
+          buttonPosition={buttonPosition}
+        />
       ) : (
         <>
           <BlockStack border="base" cornerRadius="base" padding="base">
@@ -361,11 +375,11 @@ function Extension() {
                       {/* </View> */}
                     </BlockLayout>
                     <Button
-                      appearance="monochrome"
-                      kind="secondary"
+                      appearance={buttonAppearance || "monochrome"}
+                      kind={buttonStyle || "secondary"}
                       onPress={() => handleAdd(product.id)}
                     >
-                      Add
+                      {buttonText || "ADD"}
                     </Button>
                   </InlineLayout>
                 </InlineLayout>
@@ -378,26 +392,7 @@ function Extension() {
   );
 }
 
-function ColumnLayout({ products, handleAdd }) {
-  // Placeholder data for two products based on the image
-  const productsData = [
-    {
-      id: products[0].id,
-      imageSrc: products[0].image,
-      title: products[0].title,
-      originalPrice: products[0].price,
-      discountedPrice: products[0].price, // Assuming no discount for now
-      discountText: "",
-    },
-    {
-      id: products[1].id,
-      imageSrc: products[1].image,
-      title: products[1].title,
-      originalPrice: products[1].price,
-      discountedPrice: products[1].price, // Assuming no discount for now
-      discountText: "",
-    },
-  ];
+function ColumnLayout({ products, handleAdd, buttonAppearance, buttonText, buttonStyle, buttonPosition }) {
 
   return (
     <InlineLayout
@@ -407,12 +402,12 @@ function ColumnLayout({ products, handleAdd }) {
       // padding="base"
       // borderRadius="base"
     >
-      {productsData.map((product) => (
+      {products.map((product) => (
         <View key={product.id}>
           <BlockStack spacing="base">
             <View border="base" cornerRadius="base">
               <Image
-                source={product.imageSrc}
+                source={product.image}
                 accessibilityLabel={product.title}
                 aspectRatio={1} // Adjust as needed
                 fit="cover"
@@ -420,19 +415,19 @@ function ColumnLayout({ products, handleAdd }) {
               />
             </View>
             <BlockStack maxBlockSize={`100%`} spacing="none">
-              <Text size="medium" emphasis="bold">
+              <Text size="base" emphasis="bold">
                 {product.title}
               </Text>
               <Text appearance="subdued" strikethrough>
-                {product.originalPrice}
+                {product.price}
               </Text>
             </BlockStack>
             <Button
-              appearance="monochrome"
-              kind="primary"
+              appearance={buttonAppearance || "monochrome"}
+              kind={buttonStyle || "primary"}
               onPress={() => handleAdd(product.id)} // This now correctly calls the passed handleAdd
             >
-              ADD
+              {buttonText || "ADD"}
             </Button>
           </BlockStack>
         </View>

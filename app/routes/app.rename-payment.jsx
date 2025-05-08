@@ -15,7 +15,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 
 // Import authentication and API utility functions from shopify.server
-import { authenticate } from "../shopify.server";
+import { authenticate, PLUS_PLAN, PLUS_PLAN_YEARLY } from "../shopify.server";
 
 // Import Remix Run hooks and utilities for handling server-side actions and data fetching
 import {
@@ -32,8 +32,31 @@ import prisma from "../db.server";
  * This function is called on the server side to load data before rendering the page.
  */
 export async function loader({ request }) {
-  const { admin } = await authenticate.admin(request); // Authenticate the admin user
+  const { admin, billing } = await authenticate.admin(request); // Authenticate the admin user
   try {
+    // Check if the shop is plus and has an active payment
+    const { hasActivePayment, appSubscriptions } = await billing.check({
+      plans: [PLUS_PLAN, PLUS_PLAN_YEARLY],
+      isTest: true,
+    });
+
+    const shopResponse = await admin.graphql(`
+      query {
+        shop {
+          id
+          plan {
+            displayName
+            partnerDevelopment
+            shopifyPlus
+          }
+        }
+      }
+    `);
+    const shopData = await shopResponse.json();
+    const shopPlan = shopData.data?.shop?.plan;
+    console.log("shop plan", shopPlan);
+    // Check if the shop is plus and has an active payment ends ---
+
     // Query the Shopify GraphQL API to get the shop ID
     const response = await admin.graphql(`
       query {
@@ -44,7 +67,7 @@ export async function loader({ request }) {
     `);
     const shop = await response.json(); // Parse the JSON response
     // Return the shop ID as part of the loader data
-    return { id: shop.data.shop.id };
+    return { id: shop.data.shop.id, shopPlan, hasActivePayment };
   } catch (error) {
     // Handle errors by returning an error message
     return { message: "owner not found", error: error };
@@ -122,7 +145,6 @@ export async function action({ request }) {
     );
     const metafieldData = await response.json();
 
-    
     // --- Fetch & Execute Shopify Functions ---
     const functionResponse = await admin.graphql(
       `query {
@@ -246,7 +268,7 @@ export async function action({ request }) {
         success: true,
         message: "Successfully saved to database and metafields",
         dbSave,
-        metafield: metafieldData.data.metafieldsSet
+        metafield: metafieldData.data.metafieldsSet,
       });
     } else {
       throw new Error("Failed to save all data");
@@ -263,7 +285,7 @@ export async function action({ request }) {
  */
 export default function CustomizationSection() {
   const data = useActionData(); // Fetch action data after form submission
-  const { id } = useLoaderData(); // Fetch shop ID from loader data
+  const { id, shopPlan, hasActivePayment } = useLoaderData(); // Fetch shop ID from loader data
   console.log("data->", data);
 
   return (
@@ -271,7 +293,26 @@ export default function CustomizationSection() {
       backAction={{ content: "Settings", url: "/app/payment-customization" }} // Back button navigation
       title="Payment Method Name" // Page title
     >
-      <Body id={id} /> {/* Render the main form body */}
+      {!hasActivePayment && (
+        <>
+          <Banner
+            title="Upgrade your plan"
+            tone="warning"
+            action={{
+              content: "Upgrade",
+              url: "/app/subscription-manage",
+              variant: "primary",
+            }}
+          >
+            <p>
+              Upgrade your plan to get access to all the features of this app.
+            </p>
+          </Banner>
+          <br />
+        </>
+      )}
+      <Body id={id} hasActivePayment={hasActivePayment} />{" "}
+      {/* Render the main form body */}
     </Page>
   );
 }
@@ -280,7 +321,7 @@ export default function CustomizationSection() {
  * Component responsible for rendering the form fields and interactions.
  * This component handles user input, validation, and form submission.
  */
-export function Body({ id }) {
+export function Body({ id, hasActivePayment }) {
   const [parentValue, setParentValue] = useState(""); // State for selected payment method
   const [customizeName, setCustomizeName] = useState(""); // State for customization name
   const [newName, setNewName] = useState(""); // State for new payment method name
@@ -486,6 +527,7 @@ export function Body({ id }) {
                   variant="primary"
                   fullWidth
                   loading={fetcher.state === "submitting"}
+                  disabled={!hasActivePayment}
                 >
                   Save
                 </Button>
@@ -510,21 +552,27 @@ export function Body({ id }) {
             <Box paddingBlockStart="400">
               {customizeName && (
                 <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">Customization Name: </Text>
+                  <Text fontWeight="bold" as="span">
+                    Customization Name:{" "}
+                  </Text>
                   <Text as="span">{customizeName}</Text>
                 </Box>
               )}
 
               {parentValue && (
                 <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">Payment Method: </Text>
+                  <Text fontWeight="bold" as="span">
+                    Payment Method:{" "}
+                  </Text>
                   <Text as="span">{parentValue}</Text>
                 </Box>
               )}
 
               {newName && (
                 <Box paddingBlockEnd="200">
-                  <Text fontWeight="bold" as="span">New Name: </Text>
+                  <Text fontWeight="bold" as="span">
+                    New Name:{" "}
+                  </Text>
                   <Text as="span">{newName}</Text>
                 </Box>
               )}

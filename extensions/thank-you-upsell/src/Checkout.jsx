@@ -14,6 +14,8 @@ import {
   BlockLayout,
   Link,
   useSettings,
+  useExtensionApi,
+  ScrollView,
 } from "@shopify/ui-extensions-react/checkout";
 
 export default reactExtension("purchase.thank-you.block.render", () => (
@@ -27,15 +29,24 @@ const orderDetailsRender = reactExtension(
 export { orderDetailsRender };
 
 function Extension() {
-  const { layout, heading, buttonText, buttonStyle, imageSize, showPrice } =
-    useSettings(); // State management
+  const {
+    layout,
+    heading,
+    buttonText,
+    buttonStyle,
+    buttonAppearance,
+    buttonPosition,
+  } = useSettings(); // State management
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showUpsell, setShowUpsell] = useState(false);  
+  const [showUpsell, setShowUpsell] = useState(false);
 
   // Hooks
-  const { query, applyCartLinesChange, shop } = useApi();
+  // Correctly destructure shop from useApi
+  const { query, applyCartLinesChange } = useApi();
+  const { shop } = useExtensionApi();
+  // console.log("shop:", shop);
   const cartLines = useCartLines();
   const metafields = useAppMetafields();
 
@@ -224,7 +235,7 @@ function Extension() {
     const data = await fetchProducts(validUpsellProductIds);
     if (data && data.nodes) {
       const formattedProducts = formatProductsData(data.nodes);
-      console.log("formattedProducts:", formattedProducts);
+      // console.log("formattedProducts:", formattedProducts);
       setProducts(formattedProducts);
     }
   };
@@ -236,8 +247,8 @@ function Extension() {
         const upsellSettings = parseMetafieldData(shopMetafield);
         const upsellProductSettings = parseMetafieldData(productMetafield);
 
-        console.log("upsellSettings:", upsellSettings);
-        console.log("upsellProductSettings:", upsellProductSettings);
+        // console.log("upsellSettings:", upsellSettings);
+        // console.log("upsellProductSettings:", upsellProductSettings);
 
         // Check if either metafield data source is available
         if (upsellProductSettings) {
@@ -282,16 +293,18 @@ function Extension() {
           products={products}
           buttonText={buttonText}
           buttonStyle={buttonStyle}
-          imageSize={imageSize}
-          showPrice={showPrice}
+          shop={shop}
+          buttonAppearance={buttonAppearance}
+          buttonPosition={buttonPosition}
         />
       ) : (
         <>
           <BlockStack border="base" cornerRadius="base" padding="base">
             {products.map((product) => {
               // --- Construct product URL using product.handle ---
-              const productUrl = `https://${shop.myshopifyDomain}/products/${product.handle}`;
-              console.log("showPrice:", showPrice);
+              const productUrl = shop?.myshopifyDomain
+                ? `https://${shop.myshopifyDomain}/products/${product.handle}`
+                : `#`;
               return (
                 <View
                   key={product.id}
@@ -314,17 +327,18 @@ function Extension() {
                       columns={["fill", "70px"]}
                     >
                       <BlockLayout blockAlignment="center" spacing="none">
-                        {/* <View> */}
                         <Heading size="medium">{product.title}</Heading>
-                        {showPrice != false && (  
-                          <Text size="small" appearance="subdued">  
-                            {product.price} 
-                          </Text>  
-                        )}  
-                        {/* </View> */}
+                        <Text size="small" appearance="subdued">
+                          {product.price}
+                        </Text>
                       </BlockLayout>
                       <Link to={productUrl} external={true}>
-                        <Button kind="secondary">Add</Button>
+                        <Button
+                          kind={buttonStyle || "primary"}
+                          appearance={buttonAppearance || "monochrome"}
+                        >
+                          {buttonText || "Add"}
+                        </Button>
                       </Link>
                     </InlineLayout>
                   </InlineLayout>
@@ -338,7 +352,14 @@ function Extension() {
   );
 }
 
-function ColumnLayout({ products }) {
+function ColumnLayout({
+  products,
+  shop,
+  buttonText,
+  buttonStyle,
+  buttonAppearance,
+  buttonPosition,
+}) {
   // Placeholder data for two products based on the image
   const productsData = [
     {
@@ -357,36 +378,64 @@ function ColumnLayout({ products }) {
       discountedPrice: products[1].price, // Assuming no discount for now
       discountText: "",
     },
+    {
+      id: products[2].id,
+      imageSrc: products[2].image,
+      title: products[2].title,
+      originalPrice: products[2].price,
+      discountedPrice: products[2].price, // Assuming no discount for now
+      discountText: "",
+    },
   ];
 
   return (
-    <InlineLayout columns={["fill", "fill"]} spacing="base">
-      {productsData.map((product) => {
+    <InlineLayout columns={["fill", "fill", "fill"]} spacing="base">
+      {products.map((product) => {
         // --- Construct product URL using product.handle ---
-        const productUrl = `https://${shop.myshopifyDomain}/products/${product.handle}`;
+        const productUrl = shop?.myshopifyDomain
+          ? `https://${shop.myshopifyDomain}/products/${product.handle}`
+          : `#`;
         return (
           <View key={product.id}>
             <BlockStack spacing="base">
               <View border="base" cornerRadius="base">
                 <Image
-                  source={product.imageSrc}
+                  source={product.image}
                   accessibilityLabel={product.title}
                   aspectRatio={1} // Adjust as needed
                   fit="cover"
                   cornerRadius="base"
                 />
               </View>
-              <BlockStack maxBlockSize={`100%`} spacing="none">
-                <Text size="medium" emphasis="bold">
-                  {product.title}
-                </Text>
-                <Text appearance="subdued" strikethrough>
-                  {product.originalPrice}
-                </Text>
+              <BlockStack
+                // inlineAlignment="center"
+                maxBlockSize={`100%`}
+                spacing="none"
+              >
+                <View
+                  inlineAlignment={buttonPosition || "start"}
+                  inlineSize={"fill"}
+                >
+                  <Text size="base" emphasis="bold">
+                    {product.title}
+                  </Text>
+                  <Text appearance="subdued">{product.price}</Text>
+                </View>
+
+                <Link to={productUrl} external={true}>
+                  <View
+                    inlineAlignment={buttonPosition || "start"}
+                    inlineSize={"fill"}
+                  >
+                    <Button
+                      kind={buttonStyle || "secondary"}
+                      appearance={buttonAppearance || "base"}
+                    >
+                      {buttonText || "Add"}
+                    </Button>
+                  </View>
+                </Link>
               </BlockStack>
-              <Link to={productUrl} external={true}>
-                <Button kind="secondary">Add</Button>
-              </Link>
             </BlockStack>
           </View>
         );

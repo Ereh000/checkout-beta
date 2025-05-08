@@ -12,8 +12,10 @@ import {
   TextContainer,
   Badge,
   DataTable,
+  Toast,
+  Frame,
 } from "@shopify/polaris";
-import { ArrowRightIcon } from "@shopify/polaris-icons"; // Importing Close Icon
+import { ArrowRightIcon, DeleteIcon } from "@shopify/polaris-icons"; // Importing Close Icon
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import prisma from "../db.server"; // Import Prisma client
 import { authenticate } from "../shopify.server"; // For authentication
@@ -87,29 +89,49 @@ export default function PaymentCustomization() {
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [toastProps, setToastProps] = useState({
+    active: false,
+    message: "",
+    error: false,
+  });
 
   const handleDelete = async (item) => {
     try {
-      const itemId = item.id;
-      fetcher.submit(itemId, {
-        method: "delete",
+      const formData = new FormData();
+      formData.append("id", item.id);
+
+      fetcher.submit(formData, {
+        method: "DELETE",
         action: ".",
       });
-      console.log("item deleted successfully");
+      setShowDeleteModal(false); // Close modal after deletion
     } catch (error) {
       console.error("Error deleting customization:", error);
+      setToastProps({
+        active: true,
+        message: "Failed to delete customization",
+        error: true,
+      });
     }
   };
 
   React.useEffect(() => {
     if (fetcher.data) {
       if (fetcher.data.errors) {
-        console.log("Item deleted unsuccessfully");
+        setToastProps({
+          active: true,
+          message: fetcher.data.error,
+          error: true,
+        });
       } else if (fetcher.data.success) {
-        console.log("Item deleted Successfully");
+        setToastProps({
+          active: true,
+          message: "Customization deleted successfully",
+          error: false,
+        });
       }
     }
-  });
+  }, [fetcher.data]);
 
   // Format date function
   const formatDate = (dateString) => {
@@ -125,6 +147,9 @@ export default function PaymentCustomization() {
   const sortedCustomizations = [...customizations].sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
   );
+
+  // Add loading state tracking
+  const isDeleting = fetcher.state !== "idle";
 
   // --- Prepare data for DataTable ---
   const rows = sortedCustomizations.map((item) => [
@@ -148,144 +173,145 @@ export default function PaymentCustomization() {
       </Button>
       <Button
         variant="primary"
-        tone="critical"
+        loading={isDeleting && itemToDelete?.id === item.id}
+        // disabled={isDeleting}
         onClick={() => {
           setItemToDelete(item);
           setShowDeleteModal(true);
         }}
-      >
-        Delete
-      </Button>
+        icon={DeleteIcon}
+      ></Button>
     </div>,
   ]);
   // --- End Prepare data for DataTable ---
 
   return (
-    <Page
-      backAction={{ content: "Settings", url: "/app" }}
-      title="Shipping Customizations"
-      primaryAction={
-        <Button variant="primary" onClick={() => setIsOpen(true)}>
-          Create Customization
-        </Button>
-      }
-    >
-      {/* Existing content */}
-      <MediaCard
-        title="How to use Customizations"
-        primaryAction={{
-          content: "Learn more",
-          onAction: () => {},
-        }}
-        description="Thank you for using Checkout Plus. Here is an example of using shipping customizations on the checkout."
-        popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
+    <Frame>
+      <Page
+        backAction={{ content: "Settings", url: "/app" }}
+        title="Shipping Customizations"
+        primaryAction={
+          <Button variant="primary" onClick={() => setIsOpen(true)}>
+            Create Customization
+          </Button>
+        }
       >
-        <VideoThumbnail
-          videoLength={80}
-          thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
-          onClick={() => console.log("clicked")}
-        />
-      </MediaCard>
-
-      <br />
-      {/* --- Conditional Rendering: DataTable or EmptyState --- */}
-      {customizations.length > 0 ? (
-        <LegacyCard>
-          <DataTable
-            columnContentTypes={[
-              "text", // Name
-              "text", // Type
-              "text", // Status
-              "text", // Date
-              "text", // Edit
-            ]}
-            headings={["Name", "Type", "Status", "Created At", "Actions"]}
-            rows={rows} // Use the prepared rows
-          />
-        </LegacyCard>
-      ) : (
-        <LegacyCard sectioned>
-          <EmptyState
-            heading="No customizations"
-            image="https://cdn.shopify.com/shopifycloud/web/assets/v1/2b13a3a6f21ed6ba.svg"
-          >
-            <p>
-              Create a new customization to start customizing your shipping
-              methods at checkout.
-            </p>
-          </EmptyState>
-        </LegacyCard>
-      )}
-      {/* --- End Conditional Rendering --- */}
-
-      {/* Polaris Modal */}
-      <div className="shipping_customization_model">
-        <Modal
-          open={isOpen}
-          onClose={() => setIsOpen(false)}
-          title="Select A Customization"
+        {/* Existing content */}
+        <MediaCard
+          title="How to use Customizations"
+          primaryAction={{
+            content: "Learn more",
+            onAction: () => {},
+          }}
+          description="Thank you for using Checkout Plus. Here is an example of using shipping customizations on the checkout."
+          popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
         >
-          {/* Option 1 */}
-          <Modal.Section>
-            <Link
-              to={"/app/hide-shipping-method"}
-              style={{ textDecoration: "none", color: "#000" }}
-            >
-              <TextContainer>
-                <div
-                  className="flex justify-between items-center"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "100%",
-                  }}
-                >
-                  <div className="">
-                    <Text variant="headingMd" as="h5">
-                      Hide Shipping Methodd
-                    </Text>
-                    <p>Hide shipping method based on order totals</p>
-                  </div>
-                  <div className="">
-                    <Icon source={ArrowRightIcon}></Icon>
-                  </div>
-                </div>
-              </TextContainer>
-            </Link>
-          </Modal.Section>
-          {/* Option 2 */}
-          <Modal.Section>
-            <Link
-              to={"/app/shipping-add-message"}
-              style={{ textDecoration: "none", color: "#000" }}
-            >
-              <TextContainer onClick={() => console.log("clicked")}>
-                <div
-                  className="flex justify-between items-center"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "100%",
-                  }}
-                >
-                  <div className="">
-                    <Text variant="headingMd" as="h5">
-                      Add Message to Shipping Method
-                    </Text>
-                    <p>Display a message below a shipping method</p>
-                  </div>
-                  <div className="">
-                    <Icon source={ArrowRightIcon}></Icon>
-                  </div>
-                </div>
-              </TextContainer>
-            </Link>
-          </Modal.Section>
+          <VideoThumbnail
+            videoLength={80}
+            thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
+            onClick={() => console.log("clicked")}
+          />
+        </MediaCard>
 
-          {/* These Features will be indule later */}
-          {/* <Modal.Section>
+        <br />
+        {/* --- Conditional Rendering: DataTable or EmptyState --- */}
+        {customizations.length > 0 ? (
+          <LegacyCard>
+            <DataTable
+              columnContentTypes={[
+                "text", // Name
+                "text", // Type
+                "text", // Status
+                "text", // Date
+                "text", // Edit
+              ]}
+              headings={["Name", "Type", "Status", "Created At", "Actions"]}
+              rows={rows} // Use the prepared rows
+            />
+          </LegacyCard>
+        ) : (
+          <LegacyCard sectioned>
+            <EmptyState
+              heading="No customizations"
+              image="https://cdn.shopify.com/shopifycloud/web/assets/v1/2b13a3a6f21ed6ba.svg"
+            >
+              <p>
+                Create a new customization to start customizing your shipping
+                methods at checkout.
+              </p>
+            </EmptyState>
+          </LegacyCard>
+        )}
+        {/* --- End Conditional Rendering --- */}
+
+        {/* Polaris Modal */}
+        <div className="shipping_customization_model">
+          <Modal
+            open={isOpen}
+            onClose={() => setIsOpen(false)}
+            title="Select A Customization"
+          >
+            {/* Option 1 */}
+            <Modal.Section>
+              <Link
+                to={"/app/hide-shipping-method"}
+                style={{ textDecoration: "none", color: "#000" }}
+              >
+                <TextContainer>
+                  <div
+                    className="flex justify-between items-center"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      width: "100%",
+                    }}
+                  >
+                    <div className="">
+                      <Text variant="headingMd" as="h5">
+                        Hide Shipping Methodd
+                      </Text>
+                      <p>Hide shipping method based on order totals</p>
+                    </div>
+                    <div className="">
+                      <Icon source={ArrowRightIcon}></Icon>
+                    </div>
+                  </div>
+                </TextContainer>
+              </Link>
+            </Modal.Section>
+            {/* Option 2 */}
+            <Modal.Section>
+              <Link
+                to={"/app/shipping-add-message"}
+                style={{ textDecoration: "none", color: "#000" }}
+              >
+                <TextContainer onClick={() => console.log("clicked")}>
+                  <div
+                    className="flex justify-between items-center"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      width: "100%",
+                    }}
+                  >
+                    <div className="">
+                      <Text variant="headingMd" as="h5">
+                        Add Message to Shipping Method
+                      </Text>
+                      <p>Display a message below a shipping method</p>
+                    </div>
+                    <div className="">
+                      <Icon source={ArrowRightIcon}></Icon>
+                    </div>
+                  </div>
+                </TextContainer>
+              </Link>
+            </Modal.Section>
+
+            {/* These Features will be indule later */}
+            {/* <Modal.Section>
             <Link style={{ textDecoration: "none", color: "#000" }}>
               <TextContainer onClick={() => console.log("clicked")}>
                 <div
@@ -340,41 +366,57 @@ export default function PaymentCustomization() {
               </TextContainer>
             </Link>
           </Modal.Section> */}
-        </Modal>
-      </div>
+          </Modal>
+        </div>
 
-      {/* Add Delete Confirmation Modal */}
-      <Modal
-        open={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Delete Customization"
-      >
-        <Modal.Section>
-          <TextContainer>
-            <p>Are you sure you want to delete this customization?</p>
-            <p>This action cannot be undone.</p>
-          </TextContainer>
-        </Modal.Section>
-        <Modal.Section>
-          <div
-            style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}
-          >
-            <Button onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-            <Button
-              tone="critical"
-              onClick={() => {
-                handleDelete(itemToDelete);
-                setShowDeleteModal(false);
+        {/* Add Delete Confirmation Modal */}
+        <Modal
+          open={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Customization"
+        >
+          <Modal.Section>
+            <TextContainer>
+              <p>Are you sure you want to delete this customization?</p>
+              <p>This action cannot be undone.</p>
+            </TextContainer>
+          </Modal.Section>
+          <Modal.Section>
+            <div
+              style={{
+                display: "flex",
+                gap: "1rem",
+                justifyContent: "flex-end",
               }}
             >
-              Delete
-            </Button>
-          </div>
-        </Modal.Section>
-      </Modal>
+              <Button onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+              <Button
+                tone="critical"
+                variant="primary"
+                onClick={() => {
+                  handleDelete(itemToDelete);
+                  setShowDeleteModal(false);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </Modal.Section>
+        </Modal>
 
-      <br />
-      <br />
-    </Page>
+        {/* Add Toast component */}
+        {toastProps.active && (
+          <Toast
+            content={toastProps.message}
+            error={toastProps.error}
+            onDismiss={() => setToastProps({ ...toastProps, active: false })}
+            duration={4000}
+          />
+        )}
+
+        <br />
+        <br />
+      </Page>
+    </Frame>
   );
 }

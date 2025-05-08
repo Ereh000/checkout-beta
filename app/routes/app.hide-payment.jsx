@@ -20,7 +20,7 @@ import { DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 // Import authentication and API utility functions from shopify.server
-import { authenticate } from "../shopify.server";
+import { authenticate, PLUS_PLAN, PLUS_PLAN_YEARLY } from "../shopify.server";
 
 // Import Remix Run hooks and utilities for handling server-side actions and data fetching
 import {
@@ -30,12 +30,38 @@ import {
   useFetcher,
   useLoaderData,
 } from "@remix-run/react";
+import prisma from "../db.server";
 
 // Loader function to fetch shop data from Shopify API
 export async function loader({ request }) {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const idd = url.searchParams.get("id");
+  console.log("id", idd);
 
   try {
+    // Check if the shop is plus and has an active payment
+    const { hasActivePayment, appSubscriptions } = await billing.check({
+      plans: [PLUS_PLAN, PLUS_PLAN_YEARLY],
+      isTest: true,
+    });
+
+    const shopResponse = await admin.graphql(`
+      query {
+        shop {
+          id
+          plan {
+            displayName
+            partnerDevelopment
+            shopifyPlus
+          }
+        }
+      }
+    `);
+    const shopData = await shopResponse.json();
+    const shopPlan = shopData.data?.shop?.plan;
+    console.log("shop plan", shopPlan);
+
     // Query the Shopify GraphQL API to get the shop ID
     const response = await admin.graphql(`
       query{
@@ -46,10 +72,23 @@ export async function loader({ request }) {
     `);
     const shop = await response.json();
 
+    let customizationData = null;
+    if (idd) {
+      // Fetch customization data if ID exists
+      customizationData = await prisma.paymentHide.findUnique({
+        where: { id: parseInt(idd) },
+      });
+    }
+    console.log("customization", customizationData);
+
     // Return the shop ID as part of the loader data
     return {
       id: shop.data.shop.id,
       host: session.shop, // Add host information
+      customization: customizationData,
+      hasActivePayment,
+      appSubscriptions,
+      shopPlan,
     };
   } catch (error) {
     // Handle errors by returning an error message
@@ -59,26 +98,53 @@ export async function loader({ request }) {
 
 // Main component rendering the page
 export default function CustomizationSection() {
-  const { id, host } = useLoaderData(); // Fetch shop ID from loader data
-  const dataa = useActionData(); // Fetch action data after form submission
+  const {
+    id,
+    host,
+    customization,
+    hasActivePayment,
+    appSubscriptions,
+    shopPlan,
+  } = useLoaderData(); // Fetch shop ID from loader data
+  // const dataa = useActionData(); // Fetch action data after form submission
 
-  console.log("data", dataa);
+  // console.log("customization", customization);
 
   return (
     <Page
       backAction={{ content: "Settings", url: "/app/payment-customization" }} // Back button navigation
       title="Hide Payment Method" // Page title
     >
-      <Body id={id} host={host} /> {/* Render the main form body */}
+      {!hasActivePayment && (
+        <>
+          <Banner
+            title="Upgrade your plan"
+            tone="warning"
+            action={{ content: "Upgrade", url: "/app/subscription-manage", variant: "primary"  }}
+          >
+            <p>
+              You store type is not Shopify Plus or Developer's Preview. You
+              can't customize checkout page.
+            </p>
+          </Banner>
+          <br />
+        </>
+      )}
+      <Body hasActivePayment={hasActivePayment} id={id} host={host} customization={customization} />{" "}
+      {/* Render the main form body */}
     </Page>
   );
 }
 
 // Component responsible for rendering the form fields and interactions
-export function Body({ id, host }) {
+export function Body({ id, host, customization, hasActivePayment }) {
   const [alertMessage, setAlertMessage] = useState(null); // Add new state for alert messages
-  const [parentValue, setParentValue] = useState(""); // Parent value state
-  const [customizeName, setCustomizeName] = useState(""); // Customization name state
+  const [parentValue, setParentValue] = useState(
+    customization?.paymentMethod || "",
+  ); // Parent value state
+  const [customizeName, setCustomizeName] = useState(
+    customization?.customizeName || "",
+  ); // Customization name state
   const handleChildValue = (childValue) => {
     setParentValue(childValue); // Handle child value change
   };
@@ -86,16 +152,29 @@ export function Body({ id, host }) {
   // Modal logic for selecting products
   const [currentConditionIndex, setCurrentConditionIndex] = useState(null); // Track the active condition index
 
-  // State to manage the list of conditions
-  const [conditions, setConditions] = useState([
-    {
-      discountType: "product",
-      greaterOrSmall: "is",
-      amount: 0,
-      selectedProducts: [],
-      country: "in",
-    },
-  ]);
+  // Initialize conditions from customization data if it exists
+  const [conditions, setConditions] = useState(() => {
+    if (customization?.conditions && customization.conditions.length > 0) {
+      return customization.conditions.map((condition) => ({
+        discountType: condition.type,
+        greaterOrSmall: condition.greaterOrSmall,
+        amount: condition.cartTotal || 0,
+        selectedProducts: condition.selectedProducts
+          ? condition.selectedProducts.split(",")
+          : [],
+        country: condition.country || "in",
+      }));
+    }
+    return [
+      {
+        discountType: "product",
+        greaterOrSmall: "is",
+        amount: 0,
+        selectedProducts: [],
+        country: "in",
+      },
+    ];
+  });
 
   // Remove the static products array and modal state
   // Add resource picker handler
@@ -110,7 +189,7 @@ export function Body({ id, host }) {
         initialQuery: "",
         resourceType: "Product",
         showVariants: false,
-      });  
+      });
 
       if (products) {
         const selectedProducts = products.map((product) => ({
@@ -138,12 +217,6 @@ export function Body({ id, host }) {
 
   const toggleModal = useCallback(() => {
     setModalActive((active) => !active); // Toggle modal visibility
-  }, []);
-
-  const handleSelectProduct = useCallback((id) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    ); // Add or remove selected products
   }, []);
 
   // Update the selectedProductTitles calculation
@@ -295,7 +368,7 @@ export function Body({ id, host }) {
       } else if (condition.discountType === "product") {
         const productIds = condition.selectedProducts || [];
         formData.append(`selectedProducts`, productIds.join(","));
-      } else if (condition.discountType === "shipping_country") {  
+      } else if (condition.discountType === "shipping_country") {
         formData.append(`country`, condition.country || "");
       }
     });
@@ -423,7 +496,10 @@ export function Body({ id, host }) {
                 <label style={{ fontWeight: "bold", marginBottom: "5px" }}>
                   Select Payment Method
                 </label>
-                <AutocompleteExample onValueChange={handleChildValue} />
+                <AutocompleteExample
+                  editvalue={customization?.paymentMethod}
+                  onValueChange={handleChildValue}
+                />
                 {errors.paymentMethod && (
                   <div
                     style={{ color: "red", fontSize: "12px", marginTop: "5px" }}
@@ -519,7 +595,7 @@ export function Body({ id, host }) {
                               "amount",
                               parseFloat(value),
                             )
-                          }  
+                          }
                           style={{ flex: 1 }}
                           name="cartTotal"
                         />
@@ -643,8 +719,9 @@ export function Body({ id, host }) {
                   variant="primary"
                   fullWidth
                   loading={isSubmitting} // Use isSubmitting state here
+                  disabled={!hasActivePayment ? true : false}
                 >
-                  Submit
+                  Save
                 </Button>
               </div>
             </div>
@@ -749,14 +826,15 @@ export function Body({ id, host }) {
 }
 
 // Custom autocomplete component
-export function AutocompleteExample({ onValueChange }) {
+export function AutocompleteExample({ onValueChange, editvalue }) {
+  console.log("editvalue", editvalue);
   const deselectedOptions = useMemo(
     () => [{ value: "cash_on_delivery", label: "Cash On Delivery" }],
     [],
   );
 
   const [selectedOptions, setSelectedOptions] = useState([]);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(editvalue ? editvalue : "");
   const [options, setOptions] = useState(deselectedOptions);
 
   const updateText = useCallback(

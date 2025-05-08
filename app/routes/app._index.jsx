@@ -25,11 +25,11 @@ import {
   AppsIcon,
   LayoutBuyButtonHorizontalIcon,
 } from "@shopify/polaris-icons";
-import { authenticate } from "../shopify.server";
+import { authenticate, PLUS_PLAN, PLUS_PLAN_YEARLY } from "../shopify.server";
 import { json, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }) {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
 
   const response = await admin.graphql(`
     query GetCheckoutProfile {
@@ -48,6 +48,27 @@ export async function loader({ request }) {
   const checkoutProfile = data.data.checkoutProfiles.edges[0].node;
   console.log("checkoutProfile", checkoutProfile);
 
+  const { hasActivePayment, appSubscriptions } = await billing.check({
+    plans: [PLUS_PLAN, PLUS_PLAN_YEARLY],
+    isTest: true,
+  });
+
+  const shopResponse = await admin.graphql(`
+    query {
+      shop {
+        id
+        plan {
+          displayName
+          partnerDevelopment
+          shopifyPlus
+        }
+      }
+    }
+  `);
+  const shopData = await shopResponse.json();
+  const shopPlan = shopData.data?.shop?.plan;
+  console.log("shop plan", shopPlan);
+
   // const checkoutProfileId = checkoutProfile.id;
   // Extract the numeric ID from the GID
   const profileId = checkoutProfile.id.split("/").pop();
@@ -55,36 +76,62 @@ export async function loader({ request }) {
   return json({
     checkoutProfileId: profileId,
     shop: session.shop.split(".myshopify.com")[0], // Get shop name without domain
+    shopPlan,
+    hasActivePayment,
+    appSubscriptions,
   });
 }
 
 // import { Redirect
 
 export default function Index() {
+  const { shopPlan, hasActivePayment, appSubscriptions } = useLoaderData();
+  console.log("shopPlan:", shopPlan);
+  console.log("hasActivePayment:", hasActivePayment);
+
   return (
     <>
       <Page>
-        <Banner
-          title="Upgrade Plan to get all features"
-          action={{
-            content: "Upgrade Now",
-            url: "/app/subscription-manage",
-            variant: "primary",
-          }}
-          tone="warning"
-        >
-          <p>
-            With your current Free plan, you can still create and save
-            extensions. However, to make these extensions work on your checkout
-            page, you'll need to upgrade to Premium.
-          </p>
-        </Banner>
-        <br />
-        <br />
+        {/* Checking shopify plus or dev. preview */}
+        {shopPlan.displayName !== "Developer Preview" &&
+          !shopPlan.shopifyPlus && (
+            <>
+              <Banner title="Checkout can't be Customized" tone="warning">
+                <p>
+                  You store type is not Shopify Plus or Developer's Preview. You
+                  can't customize checkout page.
+                </p>
+              </Banner>
+              <br />
+            </>
+          )}
+        {!hasActivePayment && (
+          <>
+            <Banner
+              title="Upgrade Plan to get all features"
+              action={{
+                content: "Upgrade Now",
+                url: "/app/subscription-manage",
+                variant: "primary",
+              }}
+              tone="warning"
+            >
+              <p>
+                With your current Free plan, you can still create and save
+                extensions. However, to make these extensions work on your
+                checkout page, you'll need to upgrade to Premium.
+              </p>
+            </Banner>
+            <br />
+          </>
+        )}
 
         <>
           <Grid>
-            <Grid.Cell gap="400" columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
+            <Grid.Cell
+              gap="400"
+              columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}
+            >
               <PaymentAndShippingCustomizations />
               <br />
               <ExtensionsSection />
@@ -190,7 +237,7 @@ export function PaymentAndShippingCustomizations() {
                 <Icon source={LayoutBuyButtonHorizontalIcon} />
                 <BlockStack gap="100">
                   <Text variant="bodyMd" as="p" fontWeight="semibold">
-                    Customize Checkout Styles
+                    Customize Checkout Styles (Free)
                   </Text>
                   <Text variant="bodySm" as="p" tone="subdued">
                     Change the color schemes, fonts, and more of your checkout

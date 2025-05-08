@@ -241,6 +241,7 @@ export default function MainSubscriptionManage() {
 
   // Updated feature comparison data based on the image
   const featureComparisonData = [
+    ["Checkout Page Customization", true, true],
     ["Social Media Icons", true, true],
     ["Testimonials Block", true, true],
     ["Free Shipping / Discount Bar", true, true],
@@ -316,8 +317,8 @@ export default function MainSubscriptionManage() {
         <>
           <Banner title="Development Store" tone="info">
             <p>
-              You are currently on a development store. All plans are free to use & testing for
-              development stores.
+              You are currently on a development store. All plans are free to
+              use & testing for development stores.
             </p>
           </Banner>
           <br />
@@ -430,9 +431,8 @@ export default function MainSubscriptionManage() {
                         upgradeFetcher.formData?.get("plan") === "plusYearly")
                     }
                     disabled={
-                      isPlanActive("plus") ||
-                      isPlanActive("plusYearly") ||
-                      isDevelopmentStore
+                      (selectedTabIndex === 0 && isPlanActive("plus")) ||
+                      (selectedTabIndex === 1 && isPlanActive("plusYearly"))
                     }
                   >
                     {isPlanActive("plus") || isPlanActive("plusYearly")

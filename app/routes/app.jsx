@@ -31,9 +31,9 @@ export default function App() {
         <Link to="/app/manage-upsell">Upsells</Link>
         <Link to="/app/customization">Customizations (Free)</Link>
         <Link to="/app/subscription-manage">Manage Subscription</Link>
-        <Link to="/app/additional">Additional</Link>
-        <Link to="/app/shipping-method-hide">Beta(Hide/Edit Shipping Method)</Link>
-        <Link to="/app/beta/customization">Beta(Customization)</Link>
+        {/* <Link to="/app/additional">Additional</Link> */}
+        {/* <Link to="/app/shipping-method-hide">Beta(Hide/Edit Shipping Method)</Link>
+        <Link to="/app/beta/customization">Beta(Customization)</Link> */}
       </NavMenu>
       <Outlet />
     </AppProvider>

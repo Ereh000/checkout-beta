@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { json, useFetcher, useLoaderData } from "@remix-run/react";
-import { authenticate } from "../shopify.server";
+import { authenticate, PLUS_PLAN, PLUS_PLAN_YEARLY } from "../shopify.server";
 import prisma from "../db.server";
 import {
   Page,
@@ -15,21 +15,34 @@ import {
   EmptyState,
   MediaCard,
   VideoThumbnail,
+  Banner,
 } from "@shopify/polaris";
+import { DeleteIcon } from "@shopify/polaris-icons";
 
 // Add loader function
 export async function loader({ request }) {
   try {
-    const { admin } = await authenticate.admin(request);
+    const { admin, billing } = await authenticate.admin(request);
+
+    const { hasActivePayment, appSubscriptions } = await billing.check({
+      plans: [PLUS_PLAN, PLUS_PLAN_YEARLY],
+      isTest: true,
+    });
+
     const response = await admin.graphql(`
       query {
         shop {
           id
+          plan {
+            displayName
+            partnerDevelopment
+            shopifyPlus
+          }
         }
       }
     `);
     const data = await response.json();
-    // const { shop } = data;
+    const shopPlan = data.data?.shop?.plan;
 
     // Fetch all upsells for this shop
     const upsells = await prisma.upsellSettings.findMany({
@@ -49,7 +62,10 @@ export async function loader({ request }) {
       },
     });
 
-    return { upsells };
+    console.log("active payment:", hasActivePayment);
+    console.log("app subscriptions:", appSubscriptions);
+
+    return { upsells, shopPlan, hasActivePayment, appSubscriptions };
   } catch (error) {
     console.error("Loader error:", error);
     return { upsells: [] };
@@ -78,7 +94,9 @@ export async function action({ request }) {
 }
 
 export default function ManageUpsell() {
-  const { upsells } = useLoaderData();
+  const { upsells, shopPlan, hasActivePayment, appSubscriptions } =
+    useLoaderData();
+  console.log("shopPlan:", shopPlan);
   const fetcher = useFetcher();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedUpsell, setSelectedUpsell] = useState(null);
@@ -143,10 +161,11 @@ export default function ManageUpsell() {
           </Button>
           <Button
             variant="primary"
-            tone="critical"
+            // tone="critical"
+            icon={DeleteIcon}
             onClick={() => handleDeleteClick(upsell)}
           >
-            Delete
+            {/* Delete */}
           </Button>
         </ButtonGroup>
       </IndexTable.Cell>
@@ -157,11 +176,48 @@ export default function ManageUpsell() {
     <Page
       title="Manage Upsells"
       primaryAction={
-        <Button variant="primary" url="/app/create-upsell">
+        <Button
+          variant="primary"
+          url="/app/create-upsell"
+          disabled={
+            !hasActivePayment
+              ? true
+              : shopPlan.displayName === "Developer Preview" ||
+                  shopPlan.shopifyPlus === true
+                ? false
+                : true
+          }
+        >
           Create Upsell
         </Button>
       }
     >
+      {/* Checking shopify plus or dev. preview */}
+      {shopPlan.displayName === "Developer Preview" ||
+        (shopPlan.shopifyPlus === true && (
+          <>
+            <Banner title="Checkout can't be Customized" tone="warning">
+              <p>
+                You store type is not Shopify Plus or Developer's Preview. You
+                can't customize checkout page.
+              </p>
+            </Banner>
+            <br />
+          </>
+        ))}
+      {!hasActivePayment && (
+        <>
+          <Banner
+            title="Upgrade your plan"
+            tone="warning"
+            action={{ content: "Upgrade", url: "/app/subscription-manage" }}
+          >
+            <p>You are on a free plan. Upgrade your plan to create upsells.</p>
+          </Banner>
+          <br />
+        </>
+      )}
+
       {/* Existing content */}
       <MediaCard
         title="How to use Customizations"

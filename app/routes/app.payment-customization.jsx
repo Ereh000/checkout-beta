@@ -11,14 +11,19 @@ import {
   Icon,
   Card,
   DataTable, // Import DataTable
-  Badge, // Import Badge
+  Badge,
+  TextContainer,
+  ButtonGroup,
+  Toast,
+  Frame, // Import Badge
 } from "@shopify/polaris";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CircleUpIcon,
+  DeleteIcon,
 } from "@shopify/polaris-icons"; // Importing Close Icon
-import { Link, useLoaderData, json } from "@remix-run/react"; // Import useLoaderData and json
+import { Link, useLoaderData, json, useFetcher } from "@remix-run/react"; // Import useLoaderData and json
 import prisma from "../db.server"; // Import Prisma client
 import { authenticate } from "../shopify.server"; // Import authenticate
 
@@ -85,162 +90,269 @@ export async function loader({ request }) {
 }
 // --- End Loader Function ---
 
+// Add action handler for delete
+export async function action({ request }) {
+  if (request.method === "DELETE") {
+    const formData = await request.formData();
+    const id = formData.get("id");
+    const type = formData.get("type");
+
+    try {
+      if (type === "Hide Payment") {
+        await prisma.paymentHide.delete({
+          where: { id: parseInt(id) },
+        });
+      } else if (type === "Rename Payment") {
+        await prisma.paymentRename.delete({
+          where: { id: parseInt(id) },
+        });
+      }
+
+      console.log("Customization deleted successfully");
+      return json({ success: true });
+    } catch (error) {
+      console.error("Error deleting customization:", error);
+      return json({ error: "Failed to delete customization" }, { status: 500 });
+    }
+  }
+}
+// --- End action handler ---
+
 export default function PaymentCustomization() {
   // State to control modal visibility
   const [isOpen, setIsOpen] = useState(false);
   // --- Use loader data ---
   const { customizations } = useLoaderData();
+  const fetcher = useFetcher();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [toastProps, setToastProps] = useState({
+    active: false,
+    message: "",
+    error: false,
+  });
 
-  // console.log('customizations:', customizations);
+  // Format date function
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
-  // --- Prepare data for DataTable ---
+  // Handle delete
+  const handleDelete = async (item) => {
+    try {
+      const formData = new FormData();
+      formData.append("id", item.id);
+      formData.append("type", item.type);
+
+      fetcher.submit(formData, {
+        method: "DELETE",
+        action: ".",
+      });
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error("Error deleting customization:", error);
+      setToastProps({
+        active: true,
+        message: "Failed to delete customization",
+        error: true,
+      });
+    }
+  };
+
+  // Add loading state tracking
+  const isDeleting = fetcher.state !== "idle";
+
+  React.useEffect(() => {
+    if (fetcher.data) {
+      if (fetcher.data.errors) {
+        setToastProps({
+          active: true,
+          message: fetcher.data.error,
+          error: true,
+        });
+      } else if (fetcher.data.success) {
+        setToastProps({
+          active: true,
+          message: "Customization deleted successfully",
+          error: false,
+        });
+      }
+    }
+  }, [fetcher.data]);
+
+  // Prepare data for DataTable
   const rows = customizations.map((item) => [
-    item.customizeName, // Customization Name
-    item.type, // Type (e.g., "Hide Payment", "Rename Payment")
+    item.customizeName,
+    item.type,
     <Badge
       key={`${item.id}-status`}
       tone={item.status === "active" ? "success" : "critical"}
     >
       {item.status === "active" ? "Active" : "Inactive"}
     </Badge>,
-    <Button
-      key={`${item.id}-edit`}
-      url={`/app/hide-payment?id=${item.id}`}
-      onClick={() => console.log(`Edit clicked for ${item.id}`)}
-    >
-      Edit
-    </Button>, // Add Edit button logic later
+    formatDate(item.createdAt), // Add date column
+    <div key={`${item.id}-actions`} style={{ display: "flex", gap: "0.5rem" }}>
+      <Button
+        url={
+          item.type === "Hide Payment"
+            ? `/app/hide-payment?id=${item.id}`
+            : `/app/rename-payment?id=${item.id}`
+        }
+      >
+        Edit
+      </Button>
+      <Button
+        variant="primary"
+        loading={isDeleting && itemToDelete?.id === item.id}
+        // tone="critical"
+        onClick={() => {
+          setItemToDelete(item);
+          setShowDeleteModal(true);
+        }}
+        icon={DeleteIcon}
+      ></Button>
+    </div>,
   ]);
   // --- End Prepare data for DataTable ---
 
   return (
-    <Page
-      backAction={{ content: "Settings", url: "/app" }}
-      title="Payment Customizations"
-      primaryAction={
-        <Button variant="primary" onClick={() => setIsOpen(true)}>
-          Create Customization
-        </Button>
-      }
-    >
-      {/* Existing content */}
-      <MediaCard
-        title="How to use Payment Customizations"
-        primaryAction={{
-          content: "Learn more",
-          onAction: () => {},
-        }}
-        description="Thank you for using Checkout Plus. Here is an example of using payment customizations on the checkout."
-        popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
+    <Frame>
+      <Page
+        backAction={{ content: "Settings", url: "/app" }}
+        title="Payment Customizations"
+        primaryAction={
+          <Button variant="primary" onClick={() => setIsOpen(true)}>
+            Create Customization
+          </Button>
+        }
       >
-        <VideoThumbnail
-          videoLength={80}
-          thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
-          onClick={() => console.log("clicked")}
-        />
-      </MediaCard>
-
-      <br />
-      {/* --- Conditional Rendering: DataTable or EmptyState --- */}
-      {customizations.length > 0 ? (
-        <LegacyCard>
-          <DataTable
-            columnContentTypes={[
-              "text", // Name
-              "text", // Type
-              "text", // Status (using Badge component)
-              "text", // Edit Action
-            ]}
-            headings={["Name", "Type", "Status", "Edit"]}
-            rows={rows} // Use the prepared rows
+        {/* Existing content */}
+        <MediaCard
+          title="How to use Payment Customizations"
+          primaryAction={{
+            content: "Learn more",
+            onAction: () => {},
+          }}
+          description="Thank you for using Checkout Plus. Here is an example of using payment customizations on the checkout."
+          popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
+        >
+          <VideoThumbnail
+            videoLength={80}
+            thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
+            onClick={() => console.log("clicked")}
           />
-        </LegacyCard>
-      ) : (
-        <LegacyCard sectioned>
-          <EmptyState
-            heading="No payment customizations yet"
-            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-          >
-            <p>
-              Create a new customization to modify payment options at checkout.
-            </p>
-          </EmptyState>
-        </LegacyCard>
-      )}
-      {/* --- End Conditional Rendering --- */}
+        </MediaCard>
 
-      {/* Polaris Modal */}
-      <Modal
-        open={isOpen}
-        onClose={() => setIsOpen(false)}
-        title="Select A Customization"
-      >
-        <Modal.Section>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* Option 1: Hide Payment Method */}
-            <Link
-              to={"/app/hide-payment"}
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
+        <br />
+        {/* --- Conditional Rendering: DataTable or EmptyState --- */}
+        {customizations.length > 0 ? (
+          <LegacyCard>
+            <DataTable
+              columnContentTypes={[
+                "text", // Name
+                "text", // Type
+                "text", // Status (using Badge component)
+                "text", // Add date column type
+                "text", // Action
+              ]}
+              headings={["Name", "Type", "Status", "Created Date", "Actions"]}
+              rows={rows} // Use the prepared rows
+            />
+          </LegacyCard>
+        ) : (
+          <LegacyCard sectioned>
+            <EmptyState
+              heading="No payment customizations yet"
+              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
             >
-              <div
+              <p>
+                Create a new customization to modify payment options at
+                checkout.
+              </p>
+            </EmptyState>
+          </LegacyCard>
+        )}
+        {/* --- End Conditional Rendering --- */}
+
+        {/* Polaris Modal */}
+        <Modal
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+          title="Select A Customization"
+        >
+          <Modal.Section>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
+              {/* Option 1: Hide Payment Method */}
+              <Link
+                to={"/app/hide-payment"}
                 style={{
+                  textDecoration: "none",
+                  color: "#000",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
                   display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
                 }}
               >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Hide Payment Method
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Hide payment method based on Order totals
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    width: "100%",
+                  }}
+                >
+                  <Text as="span" variant="bodyMd" fontWeight="bold">
+                    Hide Payment Method
+                  </Text>
+                  <Text as="span" variant="bodySm" color="subdued">
+                    Hide payment method based on Order totals
+                  </Text>
+                </div>
+                <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                  <ArrowRightIcon />
+                </div>
+              </Link>
 
-            {/* Option 2: Change Payment Method Name */}
-            <Link
-              to={"/app/rename-payment"}
-              style={{
-                textDecoration: "none",
-                color: "#000",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                display: "flex",
-              }}
-            >
-              <div
+              {/* Option 2: Change Payment Method Name */}
+              <Link
+                to={"/app/rename-payment"}
                 style={{
+                  textDecoration: "none",
+                  color: "#000",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
                   display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
                 }}
               >
-                <Text as="span" variant="bodyMd" fontWeight="bold">
-                  Change Name of Payment Method
-                </Text>
-                <Text as="span" variant="bodySm" color="subdued">
-                  Update the name of a specific payment method
-                </Text>
-              </div>
-              <div className="" style={{ width: "1.4rem", display: "flex" }}>
-                <ArrowRightIcon />
-              </div>
-            </Link>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    width: "100%",
+                  }}
+                >
+                  <Text as="span" variant="bodyMd" fontWeight="bold">
+                    Change Name of Payment Method
+                  </Text>
+                  <Text as="span" variant="bodySm" color="subdued">
+                    Update the name of a specific payment method
+                  </Text>
+                </div>
+                <div className="" style={{ width: "1.4rem", display: "flex" }}>
+                  <ArrowRightIcon />
+                </div>
+              </Link>
 
-            {/* These Features will be indule later */}
-            {/* <Link
+              {/* These Features will be indule later */}
+              {/* <Link
               style={{
                 textDecoration: "none",
                 color: "#000",
@@ -296,10 +408,52 @@ export default function PaymentCustomization() {
                 <ArrowRightIcon />
               </div>
             </Link> */}
-            {/*  */}
-          </div>
-        </Modal.Section> 
-      </Modal>
-    </Page>
+              {/*  */}
+            </div>
+          </Modal.Section>
+        </Modal>
+
+        {/* Add Delete Confirmation Modal */}
+        <Modal
+          open={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Customization"
+        >
+          <Modal.Section>
+            <TextContainer>
+              <p>
+                Are you sure you want to delete the customization "
+                {itemToDelete?.customizeName}"? This action cannot be undone.
+              </p>
+            </TextContainer>
+          </Modal.Section>
+          <Modal.Section>
+            <ButtonGroup>
+              <Button onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+              <Button
+                variant="primary"
+                tone="critical"
+                onClick={() => handleDelete(itemToDelete)}
+              >
+                Delete
+              </Button>
+            </ButtonGroup>
+          </Modal.Section>
+        </Modal>
+
+        {/* Add Toast component */}
+        {toastProps.active && (
+          <Toast
+            content={toastProps.message}
+            error={toastProps.error}
+            onDismiss={() => setToastProps({ ...toastProps, active: false })}
+            duration={6000}
+          />
+        )}
+
+        <br />
+        <br />
+      </Page>
+    </Frame>
   );
 }
