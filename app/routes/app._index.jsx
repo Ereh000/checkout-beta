@@ -130,13 +130,13 @@ export default function Index() {
           <Grid>
             <Grid.Cell
               gap="400"
-              columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}
+              columnSpan={{ xs: 12, sm: 12, md: 12, lg: 12, xl: 12 }}
             >
               <PaymentAndShippingCustomizations />
               <br />
               <ExtensionsSection />
             </Grid.Cell>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
+            {/* <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
               <MediaCard
                 portrait
                 title="Getting Started with Checkout Plus"
@@ -153,7 +153,7 @@ export default function Index() {
                   onClick={() => console.log("clicked")}
                 />
               </MediaCard>
-            </Grid.Cell>
+            </Grid.Cell> */}
             {/* row 2 */}
             {/* <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 12, lg: 8, xl: 8 }}>
               <ExtensionsSection />
@@ -333,7 +333,7 @@ function ExtensionsSection() {
         </Text>
         <Grid>
           {/* Checkout Extensions */}
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
             <ExtensionCard
               icon={CartIcon}
               title="Checkout Extensions"
@@ -345,7 +345,7 @@ function ExtensionsSection() {
           </Grid.Cell>
 
           {/* Thank You Extensions */}
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
             <ExtensionCard
               icon={StoreIcon}
               title="Thank You Extensions"
@@ -357,7 +357,7 @@ function ExtensionsSection() {
           </Grid.Cell>
 
           {/* Order Status Extensions */}
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
             <ExtensionCard
               icon={OrderFulfilledIcon}
               title="Order Status Extensions"
@@ -369,7 +369,7 @@ function ExtensionsSection() {
           </Grid.Cell>
 
           {/* Upsells */}
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
             <ExtensionCard
               icon={CartUpIcon}
               title="Upsells"
@@ -381,7 +381,7 @@ function ExtensionsSection() {
           </Grid.Cell>
 
           {/* Explore more extension */}
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
             <ExtensionCard
               icon={AppsIcon}
               title="Explore more extensions"
@@ -394,7 +394,7 @@ function ExtensionsSection() {
 
           {/* Add placeholders for future extensions if needed */}
           {/*
-          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 4, xl: 4 }}>
              <Card><BlockStack gap="300">...</BlockStack></Card>
           </Grid.Cell>
           */}

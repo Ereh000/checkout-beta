@@ -12,7 +12,7 @@ import {
   Toast,
   Modal,
   TextContainer,
-  EmptyState,
+  EmptyState,  
   MediaCard,
   VideoThumbnail,
   Banner,
@@ -218,23 +218,6 @@ export default function ManageUpsell() {
         </>
       )}
 
-      {/* Existing content */}
-      <MediaCard
-        title="How to use Customizations"
-        primaryAction={{
-          content: "Learn more",
-          onAction: () => {},
-        }}
-        description="Thank you for using Checkout Plus. Here is an example of using shipping customizations on the checkout."
-        popoverActions={[{ content: "Dismiss", onAction: () => {} }]}
-      >
-        <VideoThumbnail
-          videoLength={80}
-          thumbnailUrl="https://94m.app/images/Shipping-Customizations-Thumbnail.webp"
-          onClick={() => console.log("clicked")}
-        />
-      </MediaCard>
-
       <LegacyCard>
         <IndexTable
           resourceName={{ singular: "Upsell", plural: "Upsells" }}
@@ -251,7 +234,7 @@ export default function ManageUpsell() {
         </IndexTable>
       </LegacyCard>
 
-      {upsells.length === 0 && (
+      {upsells.length === 0 && (  
         <LegacyCard sectioned>
           <EmptyState
             heading="No upsells created yet"

@@ -3,7 +3,7 @@
 client_id = "afe2b2ee97a64d42e3f071170c5962be"
 name = "checkout-deploy-2"
 handle = "checkout-deploy-2"
-application_url = "https://fuel-grave-eau-photographs.trycloudflare.com"
+application_url = "https://strengthening-displays-mirror-foster.trycloudflare.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "write_delivery_customizations,write_discounts,write_payment_customizat
 
 [auth]
 redirect_urls = [
-  "https://fuel-grave-eau-photographs.trycloudflare.com/auth/callback",
-  "https://fuel-grave-eau-photographs.trycloudflare.com/auth/shopify/callback",
-  "https://fuel-grave-eau-photographs.trycloudflare.com/api/auth/callback"
+  "https://strengthening-displays-mirror-foster.trycloudflare.com/auth/callback",
+  "https://strengthening-displays-mirror-foster.trycloudflare.com/auth/shopify/callback",
+  "https://strengthening-displays-mirror-foster.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
