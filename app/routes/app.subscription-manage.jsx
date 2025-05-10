@@ -68,6 +68,7 @@ export async function loader({ request }) {
       amount: 19.99,
       currencyCode: "USD",
       interval: BillingInterval.Every30Days,
+      trialDays: 7, // Add 7-day free trial
     },
     // Yearly plans
     [BASIC_PLAN_YEARLY]: {
@@ -79,6 +80,7 @@ export async function loader({ request }) {
       amount: 108.99,
       currencyCode: "USD",
       interval: BillingInterval.Annual,
+      trialDays: 7, // Add 7-day free trial
     },
   };
 
@@ -416,6 +418,10 @@ export default function MainSubscriptionManage() {
                       </Text>
                     )}
                   </div>
+                  
+                  {/* Add trial badge */}
+                  <Badge tone="success">7-day free trial</Badge>
+                  
                   <Button
                     onClick={() =>
                       handleSubscribe(

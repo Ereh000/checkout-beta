@@ -32,6 +32,7 @@ const shopify = shopifyApp({
       amount: 19.99,
       currencyCode: 'USD',
       interval: BillingInterval.Every30Days,
+      trialDays: 7, // 7 days free trial
     },
     [PLUS_ADVANCED]: {
       amount: 49.99,
@@ -47,6 +48,7 @@ const shopify = shopifyApp({
       amount: 108.99,
       currencyCode: 'USD',
       interval: BillingInterval.Annual,
+      trialDays: 7, // 7 days free trial
     },
     [PLUS_ADVANCED_YEARLY]: {
       amount: 455.99,

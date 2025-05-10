@@ -20,11 +20,11 @@ export const action = async ({ request }) => {
       .find((segment) => segment.startsWith("checkout-"));
     if (!appHandle) {
       // Fallback to a default value based on your app name
-      appHandle = "checkout-deploy-2";
+      appHandle = "checkout-deploy-1";
     }
   } catch (error) {
     console.error("Error extracting appHandle:", error);
-    appHandle = "checkout-deploy-2";
+    appHandle = "checkout-deploy-1";
   }
 
   console.log("appHandle:", appHandle);
@@ -55,6 +55,7 @@ export const action = async ({ request }) => {
       onFailure: async () =>
         billing.request({
           plan: PLUS_PLAN,
+          trialDays: 7,
           isTest: true,
           returnUrl: returnUrl,
         }),
@@ -88,6 +89,7 @@ export const action = async ({ request }) => {
       onFailure: async () =>
         billing.request({
           plan: PLUS_PLAN_YEARLY,
+          trialDays: 7,
           isTest: true,
           returnUrl: returnUrl,
         }),
@@ -107,23 +109,3 @@ export const action = async ({ request }) => {
 
   return json({ success: true, plan });
 };
-
-// export const loader = async ({ request }) => {
-//   const { billing, session } = await authenticate.admin(request);
-
-//   const shop = session.shop.replace(".myshopify.com", "");
-
-//   await billing.require({
-//     plans: [BASIC_PLAN],
-//     // returnUrl: returnUrl,
-//     onFailure: async () =>
-//       billing.request({
-//         plan: MONTHLY_PLAN,
-//         isTest: true,
-//         returnUrl: returnUrl,
-//       }),
-//   });
-
-//   // App logic
-//   return null;
-// };

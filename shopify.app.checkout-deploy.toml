@@ -1,0 +1,28 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "bbc78028fa3decdce9a9b7bbc267e3b9"
+name = "Checkout Deploy"
+handle = "checkout-deploy-3"
+application_url = "https://valentine-stanford-catch-virgin.trycloudflare.com"
+embedded = true
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-04"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_checkout_branding_settings,write_checkout_branding_settings,write_checkouts,write_delivery_customizations,write_discounts,write_payment_customizations,write_products"
+
+[auth]
+redirect_urls = [
+  "https://valentine-stanford-catch-virgin.trycloudflare.com/auth/callback",
+  "https://valentine-stanford-catch-virgin.trycloudflare.com/auth/shopify/callback",
+  "https://valentine-stanford-catch-virgin.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false

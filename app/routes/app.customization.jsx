@@ -29,34 +29,54 @@ export async function loader({ request }) {
 
   const shop = session.shop; // Get shop URL from session
 
-  // fetch checkout profile id
-  const checkoutProfileId = await admin.graphql(`
+  // First fetch shop plan details
+  const shopPlanQuery = await admin.graphql(`
     query {
-        shop {
-          plan {
-            displayName
-            partnerDevelopment
-            shopifyPlus
-          }
+      shop {
+        plan {
+          displayName
+          partnerDevelopment
+          shopifyPlus
         }
-        checkoutProfiles(first: 1, query: "is_published:true") {
-            nodes{  
-              id
-            }
+      }
+      checkoutProfiles(first: 1, query: "is_published:true") {
+        nodes {  
+          id
         }
+      }
     }
   `);
 
-  const checkoutProfileIdData = await checkoutProfileId.json();
-  const shopPlan = checkoutProfileIdData.data?.shop?.plan;
-  const checkoutId = checkoutProfileIdData.data.checkoutProfiles.nodes[0].id;
+  const shopPlanData = await shopPlanQuery.json();
+  const shopPlan = shopPlanData.data?.shop?.plan;
+  const checkoutId = shopPlanData.data.checkoutProfiles.nodes[0].id;
+
+  // Check if store has required permissions
+  const hasAccess = shopPlan.partnerDevelopment || shopPlan.shopifyPlus;
+  console.log("hasAccess", hasAccess);
+
+  // If store doesn't have access, return early with basic data
+  if (!hasAccess) {
+    return json({
+      success: false,
+      errors: [
+        "Store does not have required permissions for checkout customization",
+      ],
+      checkoutProfileStylingsDataColors: null,
+      checkoutProfileStylingsDataColorsSchemes: null,
+      textAppearance: null,
+      cornerRadius: null,
+      checkoutId,
+      shop,
+      shopPlan,
+    });
+  }
   console.log("checkoutId", checkoutId);
   // console.log("shopPlan", shopPlan);
-
-  // fetch checkout profile stylings -----
-  const checkoutProfileStylings = await admin.graphql(
-    `
-   query GetCheckoutBranding($checkoutProfileId: ID!) {
+  try {
+    // fetch checkout profile stylings -----
+    const checkoutProfileStylings = await admin.graphql(
+      `query GetCheckoutBranding($checkoutProfileId: ID!) {
     checkoutBranding(checkoutProfileId: $checkoutProfileId) {
       designSystem {
         colors{
@@ -141,48 +161,59 @@ export async function loader({ request }) {
       }
     }
     }`,
-    {
-      variables: { checkoutProfileId: checkoutId },
-    },
-  );
+      {
+        variables: { checkoutProfileId: checkoutId },
+      },
+    );
 
-  const checkoutProfileStylingsData = await checkoutProfileStylings.json();
-  // console.log(
-  //   "checkoutProfileStylingsData",
-  //   checkoutProfileStylingsData.data.checkoutBranding,
-  // );
+    const checkoutProfileStylingsData = await checkoutProfileStylings.json();
+    console.log(
+      "checkoutProfileStylingsData",
+      checkoutProfileStylingsData?.data?.checkoutBranding,
+    );
 
-  const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
-  if (!checkoutBranding || !checkoutBranding.designSystem) {
-    console.error("Checkout profile not found or missing design system");
+    const checkoutBranding = checkoutProfileStylingsData.data?.checkoutBranding;
+    if (!checkoutBranding || !checkoutBranding?.designSystem) {
+      console.error("Checkout profile not found or missing design system");
+      return json({
+        success: false,
+        errors: ["Checkout profile not found or missing design system"],
+        checkoutProfileStylingsDataColors: null,
+        checkoutId,
+        shop,
+        shopPlan,
+      });
+    }
+
+    const checkoutProfileStylingsDataColors =
+      checkoutBranding?.designSystem.colors;
+    const checkoutProfileStylingsDataColorsSchemes =
+      checkoutProfileStylingsDataColors?.schemes;
+
+    const textAppearance = checkoutProfileStylingsDataColors?.global;
+    const cornerRadius = checkoutBranding?.designSystem?.cornerRadius;
+
+    return json({
+      success: true,
+      checkoutProfileStylingsDataColors,
+      checkoutProfileStylingsDataColorsSchemes,
+      textAppearance,
+      cornerRadius,
+      checkoutId,
+      shop,
+      shopPlan,
+    });
+  } catch (error) {
+    console.error("Error fetching checkout branding:", error);
     return json({
       success: false,
-      errors: ["Checkout profile not found or missing design system"],
+      errors: ["Error fetching checkout branding"],
       checkoutProfileStylingsDataColors: null,
       checkoutId,
       shop,
       shopPlan,
     });
   }
-
-  const checkoutProfileStylingsDataColors =
-    checkoutBranding.designSystem.colors;
-  const checkoutProfileStylingsDataColorsSchemes =
-    checkoutProfileStylingsDataColors.schemes;
-
-  const textAppearance = checkoutProfileStylingsDataColors.global;
-  const cornerRadius = checkoutBranding.designSystem.cornerRadius;
-
-  return json({
-    success: true,
-    checkoutProfileStylingsDataColors,
-    checkoutProfileStylingsDataColorsSchemes,
-    textAppearance,
-    cornerRadius,
-    checkoutId,
-    shop,
-    shopPlan,
-  });
 }
 
 // Main Customization Component
@@ -468,18 +499,18 @@ export default function CustomizationSettings() {
         </>
       )}
       {/* Checking shopify plus or dev. preview */}
-      {shopPlan.displayName === "Developer Preview" ||
-        (shopPlan.shopifyPlus === true && (
+      {shopPlan.displayName !== "Developer Preview" &&
+        shopPlan.shopifyPlus !== true && (
           <>
             <Banner title="Checkout can't be Customized" tone="warning">
               <p>
-                You are not Shopify Plus Plan or Developer's Preview. You can't
-                customize checkout page.
+                You are not on Shopify Plus Plan or Developer's Preview. You
+                can't customize checkout page.
               </p>
             </Banner>
             <br />
           </>
-        ))}
+        )}
 
       {/* Settings Layout */}
       <Layout>
